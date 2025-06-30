@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  openfire:
+    image: igniterealtime/openfire:latest
+    container_name: openfire
+    ports:
+      - "9090:9090"  # Admin UI
+      - "5222:5222"  # Client XMPP
+    restart: unless-stopped
+
+  env_agent:
+    build:
+      context: ./env_agent
+      dockerfile: ../Dockerfile.agent
+    container_name: environment_agent
+    depends_on:
+      - openfire
+    environment:
+      - XMPP_SERVER=openfire
+    command: python environment_agent_ws.py
+    networks:
+      - agents-net
+
+  tower_agent:
+    build:
+      context: ./tower_agent
+      dockerfile: ../Dockerfile.agent
+    container_name: tower_agent
+    depends_on:
+      - openfire
+      - env_agent
+    environment:
+      - XMPP_SERVER=openfire
+    command: python tower_agent.py
+    networks:
+      - agents-net
+
+networks:
+  agents-net:
+    driver: bridge
