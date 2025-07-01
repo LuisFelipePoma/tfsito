@@ -1,11 +1,9 @@
-version: '3.8'
-
 services:
   env_agent:
     build:
       context: ./env_agent
       dockerfile: ../Dockerfile.agent
-    container_name: environment_agent
+    container_name: environmentAgent
     environment:
       - XMPP_SERVER=openfire
     command: python environment_agent_ws.py
@@ -16,7 +14,8 @@ services:
     build:
       context: ./tower_agent
       dockerfile: ../Dockerfile.agent
-    container_name: tower_agent
+    container_name: towerAgent1
+    depends_on:
       - env_agent
     environment:
       - XMPP_SERVER=openfire
