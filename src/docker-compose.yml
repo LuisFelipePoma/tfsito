@@ -1,27 +1,81 @@
 services:
+  # Servidor XMPP Openfire
+  openfire:
+    image: gizmotronic/openfire:4.6.4
+    container_name: openfire
+    ports:
+      - "9090:9090"  # Admin console
+      - "5222:5222"  # XMPP client port
+      - "7777:7777"  # File transfer proxy
+    environment:
+      - OPENFIRE_USER=admin
+      - OPENFIRE_PASSWORD=admin
+    networks:
+      - agents-net
+
+  # Environment Agent (Agente del entorno con interfaz web)
   env_agent:
     build:
       context: ./env_agent
       dockerfile: ../Dockerfile.agent
     container_name: environmentAgent
+    depends_on:
+      - openfire
+    ports:
+      - "8080:8080"  # Interfaz web
+      - "8765:8765"  # WebSocket (compatibilidad)
     environment:
       - XMPP_SERVER=openfire
     command: python environment_agent_ws.py
     networks:
       - agents-net
 
-  tower_agent:
+  # Torre de Control 1 (Buenos Aires)
+  tower_agent_sabe:
     build:
       context: ./tower_agent
       dockerfile: ../Dockerfile.agent
-    container_name: towerAgent1
+    container_name: towerSABE
     depends_on:
       - env_agent
+      - openfire
     environment:
       - XMPP_SERVER=openfire
-    command: python tower_agent.py
+    command: python tower_agent.py TWR_SABE SABE
     networks:
       - agents-net
+
+  # Torre de Control 2 (Ezeiza)
+  tower_agent_saez:
+    build:
+      context: ./tower_agent
+      dockerfile: ../Dockerfile.agent
+    container_name: towerSAEZ
+    depends_on:
+      - env_agent
+      - openfire
+    environment:
+      - XMPP_SERVER=openfire
+    command: python tower_agent.py TWR_SAEZ SAEZ
+    networks:
+      - agents-net
+
+  # Torre de Control 3 (La Plata) - Opcional
+  tower_agent_sadp:
+    build:
+      context: ./tower_agent
+      dockerfile: ../Dockerfile.agent
+    container_name: towerSADP
+    depends_on:
+      - env_agent
+      - openfire
+    environment:
+      - XMPP_SERVER=openfire
+    command: python tower_agent.py TWR_SADP SADP
+    networks:
+      - agents-net
+    profiles:
+      - extended  # Solo se ejecuta con: docker-compose --profile extended up
 
 networks:
   agents-net:
