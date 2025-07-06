@@ -157,6 +157,7 @@
         }
     </style>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
 </head>
 <body>
     <div class="container">
@@ -182,7 +183,7 @@
             
             <div class="controls">
                 <button class="control-button" onclick="requestUpdate()">Refresh</button>
-                <button class="control-button" onclick="toggleAutoUpdate()">Auto Update: <span id="auto-update-status">ON</span></button>
+                <button class="control-button" onclick="toggleAutoUpdate()">WebSocket: Auto Updates</button>
                 <button class="control-button" onclick="centerView()">Center View</button>
             </div>
             
@@ -230,10 +231,10 @@
     <script>
         // State variables
         let systemState = null;
-        let autoUpdate = true;
+        let socket = null;
         let canvas, ctx;
         let gridConfig = { width: 100, height: 100, ideologies: ['red', 'blue', 'green'] };
-		console.log('Grid Config:', gridConfig);
+        let isConnected = false;
         
         // Ideology colors
         const ideologyColors = {
@@ -253,18 +254,43 @@
             resizeCanvas();
             $(window).resize(resizeCanvas);
             
-            // Load initial data
-            requestUpdate();
-            
-            // Start auto-update
-            if (autoUpdate) {
-                setInterval(() => {
-                    if (autoUpdate) {
-                        requestUpdate();
-                    }
-                }, 2000);
-            }
+            // Initialize WebSocket connection
+            initWebSocket();
         });
+        
+        function initWebSocket() {
+            console.log('Initializing WebSocket connection...');
+            socket = io();
+            
+            socket.on('connect', function() {
+                console.log('Connected to WebSocket server');
+                isConnected = true;
+                updateConnectionStatus(true);
+            });
+            
+            socket.on('disconnect', function() {
+                console.log('Disconnected from WebSocket server');
+                isConnected = false;
+                updateConnectionStatus(false);
+            });
+            
+            socket.on('system_state_update', function(data) {
+                console.log('Received system state update:', data);
+                systemState = data;
+                if (data.grid_config) {
+                    gridConfig = data.grid_config;
+                }
+                updateVisualization();
+                updateStats();
+                updateSidebar();
+            });
+            
+            socket.on('connect_error', function(error) {
+                console.error('WebSocket connection error:', error);
+                isConnected = false;
+                updateConnectionStatus(false);
+            });
+        }
         
         function resizeCanvas() {
             const container = canvas.parentElement;
@@ -276,30 +302,14 @@
         }
         
         function requestUpdate() {
-            $.ajax({
-                url: '/api/system_state',
-                method: 'GET',
-                success: function(data) {
-                    console.log('Received system state:', data);
-                    systemState = data;
-                    if (data.grid_config) {
-                        gridConfig = data.grid_config;
-                    }
-                    updateVisualization();
-                    updateStats();
-                    updateSidebar();
-                    updateConnectionStatus(true);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error fetching system state:', error);
-                    updateConnectionStatus(false);
-                }
-            });
+            if (socket && isConnected) {
+                socket.emit('request_update');
+            }
         }
         
         function updateConnectionStatus(connected) {
             const statusEl = document.getElementById('connection-status');
-            statusEl.textContent = connected ? 'Connected' : 'Disconnected';
+            statusEl.textContent = connected ? 'Connected (WebSocket)' : 'Disconnected';
             statusEl.className = 'connection-status ' + (connected ? 'connected' : 'disconnected');
         }
         
@@ -441,8 +451,9 @@
         }
         
         function toggleAutoUpdate() {
-            autoUpdate = !autoUpdate;
-            document.getElementById('auto-update-status').textContent = autoUpdate ? 'ON' : 'OFF';
+            // Since updates are now automatic via WebSocket, this button is no longer needed
+            // but we'll keep it for compatibility
+            alert('Updates are now automatic via WebSocket connection (every 1 second)');
         }
         
         function centerView() {

@@ -73,6 +73,26 @@ class AgentRegistry:
                 return True
             return False
     
+    def update_agent_position(self, agent_id: str, position: Tuple[float, float]) -> bool:
+        """Update an agent's position in the registry"""
+        with self._lock:
+            if agent_id in self._agents:
+                self._agents[agent_id].position = position
+                self._agents[agent_id].last_seen = time.time()
+                logger.debug(f"Updated position for agent {agent_id} to {position}")
+                return True
+            return False
+    
+    def update_agent_ideology(self, agent_id: str, ideology: str) -> bool:
+        """Update an agent's ideology in the registry"""
+        with self._lock:
+            if agent_id in self._agents:
+                self._agents[agent_id].ideology = ideology
+                self._agents[agent_id].last_seen = time.time()
+                logger.debug(f"Updated ideology for agent {agent_id} to {ideology}")
+                return True
+            return False
+
     def get_active_agents(self) -> List[AgentInfo]:
         """Get list of all active agents"""
         with self._lock:
@@ -152,6 +172,11 @@ class AgentRegistry:
                 "ideology_distribution": ideology_counts,
                 "host_distribution": host_counts
             }
+        
+    def get_all_agents(self) -> List[AgentInfo]:
+        """Get list of all registered agents (active and inactive)"""
+        with self._lock:
+            return list(self._agents.values())
 
 # Global agent registry instance
 agent_registry = AgentRegistry()

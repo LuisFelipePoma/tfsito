@@ -28,6 +28,13 @@ class SimulationConfig:
     health_decay_rate: int = 2
     alliance_duration: int = 100  # simulation steps
     
+    # Movement and Behavior Parameters
+    movement_range: float = 1.0  # Maximum distance an agent can move per step
+    movement_interval: float = 1  # Seconds between movement attempts
+    movement_probability: float = 0.3  # Probability of attempting movement each cycle
+    seek_similar_probability: float = 0.7  # Probability of moving towards similar agents
+    avoid_different_probability: float = 0.4  # Probability of moving away from different agents
+    
     # Ideological System Parameters
     ideologies: Optional[List[str]] = None  # Will be set in __post_init__
     influence_radius: float = 5.0  # Grid units
@@ -37,6 +44,12 @@ class SimulationConfig:
     community_join_threshold: float = 0.7  # Similarity needed to join community
     max_community_size: int = 50
     min_community_size: int = 3
+    
+    # Advanced Ideology Rules
+    ideology_pressure_threshold: float = 0.6  # 60% threshold for ideology change
+    radicalization_threshold: float = 0.8  # Threshold for becoming more extreme
+    community_compatibility_threshold: float = 0.75  # Compatibility needed for community formation
+    conflict_threshold: float = 0.5  # Threshold for generating conflicts between communities
     
     # Visualization
     gui_width: int = 1200

@@ -14,6 +14,7 @@ from spade.behaviour import PeriodicBehaviour
 from spade.template import Template
 
 from config import config
+from agent.agent_registry import agent_registry
 
 logger = logging.getLogger(__name__)
 
@@ -43,8 +44,8 @@ class GUIAgent(Agent):
         """Initialize GUI agent behaviors"""
         logger.info(f"Setting up GUI agent {self.agent_id}")
         
-        # State collection behavior
-        state_behavior = self.StateCollectionBehaviour(period=2.0)
+        # State collection behavior - check for updates every 0.5 seconds
+        state_behavior = self.StateCollectionBehaviour(period=0.5)
         template = Template()
         template.set_metadata("performative", "inform")
         template.set_metadata("ontology", "state_update")
@@ -117,6 +118,17 @@ class GUIAgent(Agent):
     
     def get_system_state(self) -> Dict[str, Any]:
         """Get complete system state for web interface"""
+        
+        # Force update from registry before returning state
+        self._force_update_from_registry()
+        
+        logger.info(f"GUI: get_system_state called - returning {len(self.agents_state)} agents")
+        
+        # Log positions for debugging
+        for agent_id, state in self.agents_state.items():
+            pos = state.get("position", {})
+            logger.info(f"GUI: Agent {agent_id} position in state: x={pos.get('x', 'N/A')}, y={pos.get('y', 'N/A')}")
+        
         return {
             "agents": list(self.agents_state.values()),
             "communities": list(self.communities.values()),
@@ -128,31 +140,93 @@ class GUIAgent(Agent):
             }
         }
     
+    def _force_update_from_registry(self):
+        """Force an immediate update from the agent registry"""
+        try:
+            active_agents = agent_registry.get_all_agents()
+            logger.info(f"GUI: Force update - found {len(active_agents)} agents in registry")
+            
+            current_time = time.time()
+            updated_agents = {}
+            
+            for agent_info in active_agents:
+                agent_id = agent_info.agent_id
+                
+                agent_state = {
+                    "agent_id": agent_id,
+                    "ideology": agent_info.ideology,
+                    "position": {
+                        "x": agent_info.position[0],
+                        "y": agent_info.position[1]
+                    },
+                    "community_id": None,
+                    "last_updated": current_time,
+                    "neighbor_count": 0,
+                    "ideology_changes": 0,
+                    "messages_sent": 0,
+                    "messages_received": 0,
+                    "current_timestep": 0
+                }
+                
+                updated_agents[agent_id] = agent_state
+                logger.info(f"GUI: Force update - Agent {agent_id} at ({agent_info.position[0]:.1f}, {agent_info.position[1]:.1f})")
+            
+            self.agents_state = updated_agents
+            self._update_system_stats()
+            
+        except Exception as e:
+            logger.error(f"Error in force update from registry: {e}")
+            import traceback
+            traceback.print_exc()
+    
     class StateCollectionBehaviour(PeriodicBehaviour):
-        """Periodically request state updates from all agents"""
+        """Periodically collect state updates from agent registry"""
         
         async def run(self):
             try:
-                # Request state updates from all known agents
-                # In a real implementation, this would broadcast a state request
-                # For now, we'll just update the timestamp
-                self.agent.system_stats["last_updated"] = time.time()
+                # Get all active agents from the registry
+                active_agents = agent_registry.get_all_agents()
                 
-                # Clean up old agent states (agents that haven't updated in a while)
+                logger.debug(f"StateCollection: Found {len(active_agents)} agents in registry")
+                
+                # Update agent states with current registry data
                 current_time = time.time()
-                timeout = 30.0  # 30 seconds timeout
+                updated_agents = {}
                 
-                expired_agents = []
-                for agent_id, state in self.agent.agents_state.items():
-                    if current_time - state.get("last_updated", 0) > timeout:
-                        expired_agents.append(agent_id)
+                for agent_info in active_agents:
+                    agent_id = agent_info.agent_id
+                    
+                    # Create updated state from registry info
+                    agent_state = {
+                        "agent_id": agent_id,
+                        "ideology": agent_info.ideology,
+                        "position": {
+                            "x": agent_info.position[0],
+                            "y": agent_info.position[1]
+                        },
+                        "community_id": None,  # This would need to be tracked separately
+                        "last_updated": current_time,
+                        "neighbor_count": 0,  # This would be calculated from proximity
+                        "ideology_changes": 0,  # This would be tracked in the agent
+                        "messages_sent": 0,
+                        "messages_received": 0,
+                        "current_timestep": 0
+                    }
+                    
+                    updated_agents[agent_id] = agent_state
+                    
+                    logger.info(f"GUI: Agent {agent_id} at position ({agent_info.position[0]:.1f}, {agent_info.position[1]:.1f}) ideology={agent_info.ideology}")
                 
-                for agent_id in expired_agents:
-                    logger.info(f"Removing expired agent {agent_id} from state")
-                    self.agent.remove_agent_state(agent_id)
+                # Replace the agents_state with fresh data from registry
+                self.agent.agents_state = updated_agents
+                self.agent._update_system_stats()
+                
+                logger.info(f"GUI: State collection complete - {len(updated_agents)} agents updated")
                 
             except Exception as e:
                 logger.error(f"Error in state collection behavior: {e}")
+                import traceback
+                traceback.print_exc()
     
     class MessageReceiveBehaviour(PeriodicBehaviour):
         """Handle incoming messages from other agents"""
