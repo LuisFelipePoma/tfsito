@@ -1,325 +1,308 @@
-# Distributed Multi-Agent Simulation
+# Distributed Ideological Multi-Agent System
 
-A comprehensive post-apocalyptic survival simulation using SPADE agents communicating via Openfire XMPP server, featuring constraint programming with OR-Tools and real-time visualization.
+A sophisticated distributed multi-agent system using the SPADE framework and Openfire XMPP server, where agents represent individuals with different ideologies that can influence each other and form communities based on constraint programming.
 
 ## Features
 
-- **Distributed Architecture**: Agents run across multiple hosts
-- **SPADE/XMPP Communication**: Real-time agent communication via Openfire
-- **Constraint Programming**: OR-Tools for intelligent decision making
-- **Dynamic Scaling**: REST API for runtime agent management
-- **Real-time Visualization**: Pygame-based GUI with live monitoring
-- **Advanced Behaviors**: Resource management, alliance formation, trust systems
+### Core Agent Capabilities
+- **Ideological Beliefs**: Each agent has one of several ideologies (red, blue, green, yellow, purple)
+- **Spatial Positioning**: Agents exist in a 2D grid world with configurable dimensions
+- **Neighbor Influence**: Agents broadcast their ideology to neighbors within an influence radius
+- **Ideology Change**: Agents can change ideology based on local majority influence with constraints
+- **Community Formation**: Agents join/leave ideological communities using constraint programming
+- **Communication**: All agent interaction via SPADE messaging over XMPP
 
-## Quick Start
+### Constraint Programming Features
+- **Ideology Switch Restrictions**: Agents can only change if >60% of neighbors differ (configurable)
+- **Change Cooldown**: Minimum time between ideology changes (3 timesteps default)
+- **Community Size Limits**: Maximum and minimum community sizes enforced
+- **Community Coherence**: Communities must maintain ideological consistency
 
-### 1. Automated Setup (Recommended)
-```bash
-python setup.py
-```
-This will install dependencies, start Openfire, and guide you through configuration.
+### Distributed Architecture
+- **Multi-Host Support**: Agents can be distributed across multiple machines
+- **Scalable Design**: Supports hundreds to thousands of agents
+- **Openfire Integration**: Uses Openfire XMPP server for all communication
+- **Automatic Registration**: Bulk agent registration/deletion via Openfire REST API
 
-### 2. Manual Setup
+### Visualization & Monitoring
+- **Web Interface**: Real-time visualization of the 2D grid with colored agents
+- **Community Display**: Shows community formations and membership
+- **Statistics Dashboard**: Tracks ideology distribution, changes, and conflicts
+- **Real-time Updates**: Live updates of system state
 
-**Prerequisites:**
+## System Requirements
+
 - Python 3.8+
-- Docker & Docker Compose
-- Git
+- Openfire XMPP Server with REST API plugin
+- Docker (for easy Openfire deployment)
 
-**Install Dependencies:**
-```bash
-pip install -r requirements.txt
-```
+## Installation
 
-**Start Openfire:**
-```bash
-docker-compose up -d
-```
+1. **Clone the repository:**
+   ```bash
+   git clone <repository-url>
+   cd tfsito
+   ```
 
-**Configure Openfire:**
-1. Open http://localhost:9090
-2. Complete setup wizard (domain: localhost)
-3. Create admin account: admin/admin123
-4. Install REST API plugin
-5. Enable REST API in plugin settings
+2. **Install Python dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### 3. Run Examples
+3. **Start Openfire server:**
+   ```bash
+   cd src
+   docker-compose up -d
+   ```
 
-**Basic Simulation:**
-```bash
-python examples/basic_example.py
-```
+   This starts Openfire with:
+   - Admin console: http://localhost:9090 (admin/123)
+   - XMPP port: 5222
+   - REST API enabled
 
-**Distributed Simulation:**
-```bash
-python examples/distributed_example.py
-```
+## Configuration
 
-**Performance Testing:**
-```bash
-python examples/performance_test.py
+Key configuration parameters in `src/config.py`:
+
+```python
+# Grid dimensions
+grid_width: int = 100
+grid_height: int = 100
+
+# Ideology system
+ideologies = ['red', 'blue', 'green', 'yellow', 'purple']
+influence_radius: float = 5.0
+ideology_change_threshold: float = 0.6  # 60% of neighbors must differ
+ideology_change_cooldown: int = 3  # Time steps between changes
+
+# Community parameters
+max_community_size: int = 50
+min_community_size: int = 3
+community_join_threshold: float = 0.7
+
+# Distributed system
+max_agents_per_host: int = 100
+broadcast_interval: float = 2.0  # Seconds between broadcasts
 ```
 
 ## Usage
 
-### Running Agents
+### Single Host Mode
 
-**Single Host:**
+Launch agents on a single host:
+
 ```bash
-# Terminal 1: Start agents
-python main.py --mode agent --host host1 --agent-count 5
-
-# Terminal 2: Start GUI monitor
-python main.py --mode gui
+cd src
+python main.py --host myhost --agent-count 20 --web
 ```
 
-**Multiple Hosts:**
+Parameters:
+- `--host`: Unique identifier for this host
+- `--agent-count`: Number of agents to spawn
+- `--web`: Enable web interface (available at http://localhost:5000)
+- `--openfire-host`: Openfire server hostname (default: localhost)
+- `--openfire-port`: Openfire REST API port (default: 9090)
+
+### Distributed Mode
+
+Use the distributed launcher to run across multiple hosts:
+
 ```bash
-# Host 1
-python main.py --mode agent --host host1 --agent-count 10
-
-# Host 2
-python main.py --mode agent --host host2 --agent-count 10 --openfire-host <host1-ip>
-
-# Monitor (any host)
-python main.py --mode gui --openfire-host <host1-ip>
+python distributed_launcher.py --total-agents 100 --hosts 4 --openfire-host localhost
 ```
 
-### GUI Controls
-- **Click**: Select agent for detailed info
-- **D**: Toggle danger zones
-- **R**: Toggle resources
-- **A**: Toggle alliance connections
-- **P**: Toggle movement paths
-- **ESC**: Exit
+This will:
+1. Distribute 100 agents across 4 host processes
+2. Start web interface on the first host
+3. Monitor all processes
+
+### Custom Configuration
+
+Create a JSON configuration file for custom setups:
+
+```json
+[
+    {"host_id": "datacenter1", "agent_count": 50},
+    {"host_id": "datacenter2", "agent_count": 30},
+    {"host_id": "edge_node", "agent_count": 20}
+]
+```
+
+Then launch with:
+```bash
+python distributed_launcher.py --config custom_config.json
+```
+
+## Web Interface
+
+The web interface provides:
+
+- **Real-time Grid Visualization**: 2D view with colored agents by ideology
+- **Community Overlay**: Visual representation of community boundaries
+- **Statistics Panel**: Live metrics including:
+  - Total agents and communities
+  - Ideology distribution
+  - Number of ideology changes
+  - Last update timestamp
+- **Interactive Controls**: Refresh, auto-update toggle, view controls
+
+Access at: http://localhost:5000 (when `--web` flag is used)
+
+## Agent Behavior
+
+### Ideology Broadcasting
+- Agents periodically broadcast their current ideology to all neighbors
+- Broadcast interval configurable (default: 2 seconds)
+- Messages include position, ideology, community membership
+
+### Decision Making
+Agents use constraint programming to make decisions:
+
+1. **Ideology Change Evaluation**:
+   - Calculate ideology distribution among neighbors within influence radius
+   - Check if >60% of neighbors have different ideology
+   - Verify cooldown period has passed (3 timesteps minimum)
+   - Select most popular different ideology among neighbors
+
+2. **Community Management**:
+   - Try to join communities of same ideology
+   - Form new communities when enough like-minded neighbors exist
+   - Leave communities that become too small or ideologically inconsistent
+   - Respect maximum community size constraints
+
+### Constraint Programming
+
+The system uses OR-Tools for constraint satisfaction:
+
+- **Ideology Constraints**: Enforces cooldown periods and threshold requirements
+- **Community Optimization**: Minimizes number of communities while respecting size and coherence constraints
+- **Spatial Constraints**: Considers neighbor proximity for influence calculations
 
 ## Architecture
 
-### Core Components
-- **Environment**: World simulation and state management
-- **Agents**: SPADE-based autonomous survivors
-- **Constraints**: OR-Tools optimization for decisions
-- **Communication**: Openfire XMPP server integration
-- **GUI**: Real-time Pygame visualization
-
-### Agent Behaviors
-- **Survival**: Health management and resource consumption
-- **Exploration**: Intelligent movement and resource discovery
-- **Communication**: Message handling and information sharing
-- **Alliance**: Trust-based coalition formation
-
-### Constraint Programming
-- **Movement**: Avoid danger zones, minimize resource distance
-- **Resources**: Optimize allocation within carry capacity
-- **Alliances**: Trust-threshold based partner selection
-- **Conflicts**: Automated resolution strategies
-
-## Configuration
-
-Key settings in `config.py`:
-
-```python
-# World
-grid_width = 50
-grid_height = 50
-danger_zone_count = 10
-
-# Agents  
-initial_agent_health = 100
-max_carry_capacity = 20
-trust_threshold = 0.6
-
-# Communication
-openfire_host = "localhost"
-openfire_port = 9090
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│     Host 1      │    │     Host 2      │    │     Host N      │
+│                 │    │                 │    │                 │
+│ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
+│ │ Agent 1-20  │ │    │ │ Agent 21-40 │ │    │ │ Agent N-M   │ │
+│ │             │ │    │ │             │ │    │ │             │ │
+│ │ Ideology    │ │    │ │ Ideology    │ │    │ │ Ideology    │ │
+│ │ Constraints │ │    │ │ Constraints │ │    │ │ Constraints │ │
+│ │ Communities │ │    │ │ Communities │ │    │ │ Communities │ │
+│ └─────────────┘ │    │ └─────────────┘ │    │ └─────────────┘ │
+│                 │    │                 │    │                 │
+│ ┌─────────────┐ │    └─────────────────┘    └─────────────────┘
+│ │ GUI Agent   │ │             │                       │
+│ │ Web Interface│ │             │                       │
+│ └─────────────┘ │             │                       │
+└─────────────────┘             │                       │
+         │                      │                       │
+         └──────────────────────┼───────────────────────┘
+                                │
+                   ┌─────────────────┐
+                   │ Openfire XMPP   │
+                   │ Server          │
+                   │                 │
+                   │ - Message Bus   │
+                   │ - User Registry │
+                   │ - REST API      │
+                   └─────────────────┘
 ```
 
-Environment variables:
-- `OPENFIRE_HOST`: Openfire server address
-- `OPENFIRE_PORT`: Openfire server port
-- `GRID_WIDTH/HEIGHT`: World dimensions
+## Scaling Considerations
 
-## Examples
+### Performance Optimizations
+- Agents use efficient neighbor discovery within influence radius
+- Constraint solving is cached and optimized
+- Web interface uses polling rather than real-time streaming
+- Openfire handles message routing and delivery
 
-### Basic Agent Creation
-```python
-from agent import create_agent
-from environment import environment
+### Distributed Deployment
+- Each host can run independently
+- Agents automatically discover each other via XMPP
+- No central coordination required beyond Openfire
+- Horizontal scaling by adding more hosts
 
-# Start environment
-environment.start_simulation()
-
-# Create agent
-agent = await create_agent("survivor_001", "host1")
-
-# Monitor
-world_state = environment.get_world_state()
-```
-
-### Constraint Solving
-```python
-from constraints import constraint_solver, MovementConstraints
-
-constraints = MovementConstraints(
-    agent_id="agent_001",
-    current_position=Position(10, 10),
-    forbidden_zones=[Position(11, 11)],  # Danger
-    target_resources=[Position(15, 15)]   # Food
-)
-
-solution = constraint_solver.solve_movement_constraints(constraints)
-```
-
-### Alliance Formation
-```python
-# Agents evaluate potential allies based on trust
-alliance_id = environment.create_alliance(
-    leader_id="agent_001",
-    member_ids=["agent_002", "agent_003"]
-)
-```
-
-## Monitoring & Debugging
-
-### Logs
-- `simulation.log`: Comprehensive system logs
-- Console output: Real-time status updates
-
-### Performance Monitoring
-- Built-in FPS counter in GUI
-- Performance test suite in `examples/`
-- Memory and CPU usage tracking
-
-### Health Checks
-```python
-from openfire_api import openfire_api
-
-# Check Openfire status
-if openfire_api.health_check():
-    print("Openfire is running")
-
-# List online agents
-online_users = openfire_api.get_online_users()
-```
+### Resource Requirements
+- ~10-50 MB RAM per 100 agents
+- Minimal CPU usage during steady state
+- Network bandwidth scales with agent density and broadcast frequency
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Openfire Connection Failed:**
-```bash
-# Check container status
-docker-compose ps
+1. **Openfire Connection Failed**
+   - Verify Openfire is running: `docker ps`
+   - Check admin console: http://localhost:9090
+   - Ensure REST API plugin is enabled
 
-# View logs
-docker-compose logs openfire
+2. **Agents Not Communicating**
+   - Check XMPP port (5222) is accessible
+   - Verify agent registration in Openfire admin console
+   - Check firewall settings for XMPP traffic
+
+3. **Web Interface Not Loading**
+   - Ensure Flask dependencies are installed
+   - Check if port 5000 is available
+   - Verify GUI agent is running
+
+4. **High Memory Usage**
+   - Reduce agent count per host
+   - Increase broadcast intervals
+   - Monitor with system tools
+
+### Logs
+
+Application logs are written to:
+- Console output (INFO level)
+- `simulation.log` file (detailed logs)
+
+Enable debug logging by modifying the logging level in `main.py`.
+
+## Example Scenarios
+
+### Small Test (10 agents, single host)
+```bash
+python main.py --host test --agent-count 10 --web
 ```
 
-**Agent Spawn Failures:**
-- Verify REST API plugin is installed
-- Check admin credentials
-- Ensure domain is configured correctly
-
-**GUI Performance Issues:**
-- Reduce agent count (`--agent-count`)
-- Lower FPS in config
-- Decrease grid size
-
-**Memory Usage:**
-- Monitor with performance tests
-- Clean up dead agents
-- Limit event history
-
-**SPADE Agent 'send' Method Error:**
+### Medium Simulation (100 agents, 3 hosts)
 ```bash
-# If you see: AttributeError: 'SurvivorAgent' object has no attribute 'send'
-# Run the agent fix test:
-python test_agent_fix.py
-
-# This error has been fixed in the code - behaviors now use self.send() instead of agent.send()
+python distributed_launcher.py --total-agents 100 --hosts 3
 ```
 
-**Missing Dependencies:**
+### Large Scale (1000 agents, 10 hosts)
 ```bash
-# Install missing packages
-pip install spade
-pip install ortools
-pip install pygame
-pip install requests
-
-# Or install all at once
-pip install -r requirements.txt
-```
-
-### Debug Commands
-```bash
-# Check Openfire API
-curl -u admin:admin123 http://localhost:9090/plugins/restapi/v1/system/properties
-
-# View agent status
-python -c "from environment import environment; print(environment.get_world_state())"
-
-# Performance test
-python examples/performance_test.py
+python distributed_launcher.py --total-agents 1000 --hosts 10
 ```
 
 ## Development
 
-### Project Structure
-```
-├── agent.py              # SPADE agent implementation
-├── constraints.py        # OR-Tools constraint programming  
-├── environment.py        # World simulation
-├── openfire_api.py       # REST API integration
-├── gui.py                # Pygame visualization
-├── config.py             # Configuration management
-├── main.py               # Entry point
-├── setup.py              # Automated setup
-├── examples/             # Usage examples
-├── docker-compose.yml    # Openfire deployment
-└── requirements.txt      # Dependencies
-```
+### Adding New Ideologies
+1. Update `config.py` ideologies list
+2. Add colors to web interface CSS/JavaScript
+3. Test with different distributions
 
-### Adding New Features
-1. **New Agent Behavior**: Extend behavior classes in `agent.py`
-2. **Constraint Types**: Add solvers in `constraints.py`
-3. **GUI Elements**: Extend drawing methods in `gui.py`
-4. **Communication**: Add message types in agent communication
+### Custom Constraint Rules
+1. Extend `IdeologyConstraintSolver` class
+2. Add new constraint types in `ideology_constraints.py`
+3. Update agent decision-making logic
 
-### Testing
-```bash
-# Run all examples
-python examples/basic_example.py
-python examples/distributed_example.py
-python examples/performance_test.py
-
-# Manual testing
-python main.py --mode agent --agent-count 1
-python main.py --mode gui
-```
-
-## Performance
-
-### Tested Limits
-- **Agents**: 500+ agents per environment
-- **Hosts**: Successfully tested on 5+ distributed hosts
-- **Real-time**: 30+ FPS GUI with 100+ agents
-- **Latency**: <10ms constraint solving per decision
-
-### Optimization Tips
-- Use fewer agents for initial testing
-- Adjust heartbeat intervals for network efficiency
-- Monitor memory usage with many agents
-- Consider database backend for large deployments
+### New Agent Behaviors
+1. Create new behavior classes in `ideological_agent.py`
+2. Add to agent setup routine
+3. Implement constraint validation
 
 ## License
 
-This project is provided as-is for educational and research purposes.
+MIT License
 
-## Support
+## Contributing
 
-For issues and questions:
-1. Check the troubleshooting guide above
-2. Review logs in `simulation.log`
-3. Run performance tests to identify bottlenecks
-4. Consult `ARCHITECTURE.md` for detailed implementation
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request

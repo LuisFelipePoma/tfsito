@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ideological Agent System</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+        
+        .main-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background-color: #2a2a2a;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid #444;
+        }
+        
+        .grid-container {
+            flex: 1;
+            position: relative;
+            background-color: #000;
+            overflow: hidden;
+        }
+        
+        #visualization {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .stats-panel {
+            background-color: #333;
+            padding: 15px;
+            border-bottom: 1px solid #444;
+        }
+        
+        .stat-item {
+            display: inline-block;
+            margin: 0 20px 10px 0;
+            padding: 5px 10px;
+            background-color: #444;
+            border-radius: 4px;
+        }
+        
+        .stat-label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        
+        .communities-list {
+            margin-top: 20px;
+        }
+        
+        .community-item {
+            background-color: #444;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }
+        
+        .ideology-red { border-left-color: #ff4444; }
+        .ideology-blue { border-left-color: #4444ff; }
+        .ideology-green { border-left-color: #44ff44; }
+        .ideology-yellow { border-left-color: #ffff44; }
+        .ideology-purple { border-left-color: #ff44ff; }
+        
+        .agent-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        .agent-item {
+            padding: 5px;
+            margin: 2px 0;
+            background-color: #555;
+            border-radius: 2px;
+            font-size: 12px;
+        }
+        
+        .controls {
+            padding: 15px;
+            background-color: #333;
+            border-bottom: 1px solid #444;
+        }
+        
+        .control-button {
+            background-color: #666;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 0 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .control-button:hover {
+            background-color: #777;
+        }
+        
+        .control-button:active {
+            background-color: #555;
+        }
+        
+        .legend {
+            margin-top: 20px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .connection-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .connected {
+            background-color: #44aa44;
+        }
+        
+        .disconnected {
+            background-color: #aa4444;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="main-panel">
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="stat-label">Agents:</span>
+                    <span id="agent-count">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Communities:</span>
+                    <span id="community-count">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Ideology Changes:</span>
+                    <span id="ideology-changes">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Last Update:</span>
+                    <span id="last-update">Never</span>
+                </div>
+            </div>
+            
+            <div class="controls">
+                <button class="control-button" onclick="requestUpdate()">Refresh</button>
+                <button class="control-button" onclick="toggleAutoUpdate()">Auto Update: <span id="auto-update-status">ON</span></button>
+                <button class="control-button" onclick="centerView()">Center View</button>
+            </div>
+            
+            <div class="grid-container">
+                <canvas id="visualization"></canvas>
+                <div id="connection-status" class="connection-status connected">Connected</div>
+            </div>
+        </div>
+        
+        <div class="sidebar">
+            <h3>Ideology Distribution</h3>
+            <div id="ideology-distribution"></div>
+            
+            <div class="legend">
+                <h4>Legend</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff4444;"></div>
+                    <span>Red Ideology</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #4444ff;"></div>
+                    <span>Blue Ideology</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #44ff44;"></div>
+                    <span>Green Ideology</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffff44;"></div>
+                    <span>Yellow Ideology</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ff44ff;"></div>
+                    <span>Purple Ideology</span>
+                </div>
+            </div>
+            
+            <div class="communities-list">
+                <h3>Communities</h3>
+                <div id="communities-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State variables
+        let systemState = null;
+        let autoUpdate = true;
+        let canvas, ctx;
+        let gridConfig = { width: 100, height: 100, ideologies: ['red', 'blue', 'green'] };
+		console.log('Grid Config:', gridConfig);
+        
+        // Ideology colors
+        const ideologyColors = {
+            red: '#ff4444',
+            blue: '#4444ff',
+            green: '#44ff44',
+            yellow: '#ffff44',
+            purple: '#ff44ff'
+        };
+        
+        // Initialize
+        $(document).ready(function() {
+            canvas = document.getElementById('visualization');
+            ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            resizeCanvas();
+            $(window).resize(resizeCanvas);
+            
+            // Load initial data
+            requestUpdate();
+            
+            // Start auto-update
+            if (autoUpdate) {
+                setInterval(() => {
+                    if (autoUpdate) {
+                        requestUpdate();
+                    }
+                }, 2000);
+            }
+        });
+        
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            if (systemState) {
+                updateVisualization();
+            }
+        }
+        
+        function requestUpdate() {
+            $.ajax({
+                url: '/api/system_state',
+                method: 'GET',
+                success: function(data) {
+                    console.log('Received system state:', data);
+                    systemState = data;
+                    if (data.grid_config) {
+                        gridConfig = data.grid_config;
+                    }
+                    updateVisualization();
+                    updateStats();
+                    updateSidebar();
+                    updateConnectionStatus(true);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error fetching system state:', error);
+                    updateConnectionStatus(false);
+                }
+            });
+        }
+        
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connection-status');
+            statusEl.textContent = connected ? 'Connected' : 'Disconnected';
+            statusEl.className = 'connection-status ' + (connected ? 'connected' : 'disconnected');
+        }
+        
+        function updateVisualization() {
+            if (!systemState || !ctx) return;
+            
+            // Clear canvas
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Calculate scale
+            const scaleX = canvas.width / gridConfig.width;
+            const scaleY = canvas.height / gridConfig.height;
+            const scale = Math.min(scaleX, scaleY);
+            
+            // Center the grid
+            const offsetX = (canvas.width - gridConfig.width * scale) / 2;
+            const offsetY = (canvas.height - gridConfig.height * scale) / 2;
+            
+            // Draw grid lines
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let x = 0; x <= gridConfig.width; x += 10) {
+                const screenX = offsetX + x * scale;
+                ctx.beginPath();
+                ctx.moveTo(screenX, offsetY);
+                ctx.lineTo(screenX, offsetY + gridConfig.height * scale);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let y = 0; y <= gridConfig.height; y += 10) {
+                const screenY = offsetY + y * scale;
+                ctx.beginPath();
+                ctx.moveTo(offsetX, screenY);
+                ctx.lineTo(offsetX + gridConfig.width * scale, screenY);
+                ctx.stroke();
+            }
+            
+            // Draw agents
+            if (systemState.agents) {
+                systemState.agents.forEach(agent => {
+                    const x = offsetX + agent.position.x * scale;
+                    const y = offsetY + agent.position.y * scale;
+                    const radius = Math.max(2, scale * 0.5);
+                    
+                    // Agent circle
+                    ctx.fillStyle = ideologyColors[agent.ideology] || '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, 2 * Math.PI);
+                    ctx.fill();
+                    
+                    // Community border
+                    if (agent.community_id) {
+                        ctx.strokeStyle = ideologyColors[agent.ideology] || '#ffffff';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius + 2, 0, 2 * Math.PI);
+                        ctx.stroke();
+                    }
+                });
+            }
+            
+            // Draw communities (influence areas)
+            if (systemState.communities) {
+                systemState.communities.forEach(community => {
+                    // Calculate community center and radius
+                    const members = systemState.agents.filter(agent => agent.community_id === community.id);
+                    if (members.length > 0) {
+                        const centerX = members.reduce((sum, agent) => sum + agent.position.x, 0) / members.length;
+                        const centerY = members.reduce((sum, agent) => sum + agent.position.y, 0) / members.length;
+                        
+                        // Draw community area
+                        ctx.fillStyle = (ideologyColors[community.ideology] || '#ffffff') + '20';
+                        ctx.strokeStyle = ideologyColors[community.ideology] || '#ffffff';
+                        ctx.lineWidth = 1;
+                        
+                        const screenX = offsetX + centerX * scale;
+                        const screenY = offsetY + centerY * scale;
+                        const radius = Math.sqrt(members.length) * scale * 3;
+                        
+                        ctx.beginPath();
+                        ctx.arc(screenX, screenY, radius, 0, 2 * Math.PI);
+                        ctx.fill();
+                        ctx.stroke();
+                    }
+                });
+            }
+        }
+        
+        function updateStats() {
+            if (!systemState) return;
+            
+            const stats = systemState.stats;
+            document.getElementById('agent-count').textContent = stats.total_agents;
+            document.getElementById('community-count').textContent = stats.total_communities;
+            document.getElementById('ideology-changes').textContent = stats.ideology_changes;
+            
+            const lastUpdate = new Date(stats.last_updated * 1000);
+            document.getElementById('last-update').textContent = lastUpdate.toLocaleTimeString();
+        }
+        
+        function updateSidebar() {
+            if (!systemState) return;
+            
+            // Update ideology distribution
+            const distributionEl = document.getElementById('ideology-distribution');
+            distributionEl.innerHTML = '';
+            
+            const stats = systemState.stats;
+            for (const [ideology, count] of Object.entries(stats.ideology_distribution)) {
+                const div = document.createElement('div');
+                div.className = 'stat-item';
+                div.innerHTML = `
+                    <div style="display: inline-block; width: 12px; height: 12px; background-color: ${ideologyColors[ideology] || '#ffffff'}; margin-right: 8px; border-radius: 50%;"></div>
+                    ${ideology}: ${count}
+                `;
+                distributionEl.appendChild(div);
+            }
+            
+            // Update communities
+            const communitiesEl = document.getElementById('communities-container');
+            communitiesEl.innerHTML = '';
+            
+            if (systemState.communities) {
+                systemState.communities.forEach(community => {
+                    const div = document.createElement('div');
+                    div.className = `community-item ideology-${community.ideology}`;
+                    div.innerHTML = `
+                        <strong>${community.id}</strong><br>
+                        Ideology: ${community.ideology}<br>
+                        Members: ${community.size}
+                    `;
+                    communitiesEl.appendChild(div);
+                });
+            }
+        }
+        
+        function toggleAutoUpdate() {
+            autoUpdate = !autoUpdate;
+            document.getElementById('auto-update-status').textContent = autoUpdate ? 'ON' : 'OFF';
+        }
+        
+        function centerView() {
+            // This would center the view on the agents
+            if (systemState) {
+                updateVisualization();
+            }
+        }
+    </script>
+</body>
+</html>

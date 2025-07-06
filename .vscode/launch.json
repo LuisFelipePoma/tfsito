@@ -10,7 +10,8 @@
                 "--host",
                 "host1",
                 "--agent-count",
-                "5"
+                "10",
+				"--web",
             ],
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
