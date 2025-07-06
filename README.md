@@ -1,325 +1,139 @@
-# Distributed Multi-Agent Simulation
+# Sistema de Despacho Inteligente de Taxis
 
-A comprehensive post-apocalyptic survival simulation using SPADE agents communicating via Openfire XMPP server, featuring constraint programming with OR-Tools and real-time visualization.
+## Descripción
+Sistema de despacho de taxis con visualización en tiempo real desarrollado con GUI Tkinter para máxima fluidez y simplicidad visual.
 
-## Features
+## Características Principales
 
-- **Distributed Architecture**: Agents run across multiple hosts
-- **SPADE/XMPP Communication**: Real-time agent communication via Openfire
-- **Constraint Programming**: OR-Tools for intelligent decision making
-- **Dynamic Scaling**: REST API for runtime agent management
-- **Real-time Visualization**: Pygame-based GUI with live monitoring
-- **Advanced Behaviors**: Resource management, alliance formation, trust systems
+### 🚕 Simulación de Taxis Avanzada
+- **Movimiento libre (Free Roaming)**: Taxis se mueven autónomamente cuando no tienen asignación
+- **Interpolación fluida**: Animaciones suaves entre posiciones
+- **Estados dinámicos**: Disponible, ocupado, en movimiento, buscando pasajeros
+- **Capacidad configurable**: Diferentes capacidades de pasajeros (4-6)
+- **Retorno automático**: Tras dejar pasajeros, vuelven al modo de búsqueda libre
 
-## Quick Start
+### 👥 Gestión de Clientes Inteligente
+- **Destinos personalizados**: Cada cliente elige un destino específico en el mapa
+- **Rango de búsqueda dinámico**: Aumenta gradualmente si ningún taxi los recoge
+- **Visualización de espera**: Muestra tiempo esperando y radio de búsqueda actual
+- **Prioridad por discapacidad**: Clientes con discapacidad tienen prioridad especial
+- **Generación automática**: Sistema mantiene población mínima de clientes
 
-### 1. Automated Setup (Recommended)
-```bash
-python setup.py
-```
-This will install dependencies, start Openfire, and guide you through configuration.
+### 🎯 Asignación Inteligente con OR-Tools
+- **Algoritmo de restricciones**: Usa OR-Tools CP-SAT para decisiones óptimas
+- **Rango expansivo**: Clientes expanden su radio de búsqueda con el tiempo
+- **Priorización automática**: Considera discapacidad, distancia y tiempo de espera
+- **Asignación en tiempo real**: Evaluación continua de mejores coincidencias
 
-### 2. Manual Setup
+### 🖥️ Interfaz Visual Avanzada
+- **Alto rendimiento**: ~60 FPS con animaciones fluidas
+- **Visualización completa**: Destinos de clientes, líneas de ruta, rangos de búsqueda
+- **Información en tiempo real**: Tiempo de espera, multiplicador de rango para cada cliente
+- **Interactividad**: Clic para agregar clientes manualmente
+- **Controles de simulación**: Botón pause/resume
+- **Estadísticas avanzadas**: Métricas de eficiencia, viajes completados, FPS
+- **Grid visual**: Rejilla de referencia con coordenadas
 
-**Prerequisites:**
-- Python 3.8+
-- Docker & Docker Compose
-- Git
+## ✨ Nuevas Características (v2.0)
 
-**Install Dependencies:**
+### 🆕 Comportamiento de Taxis Mejorado
+- **Free Roaming**: Los taxis se mueven libremente por el mapa cuando no tienen asignación
+- **Búsqueda activa**: Movimiento inteligente para encontrar pasajeros
+- **Algoritmos de pathfinding**: Movimiento optimizado evitando concentraciones
+
+### 🆕 Sistema de Clientes Dinámico
+- **Destinos específicos**: Cada cliente tiene un destino único en el mapa (no solo esquinas)
+- **Rango expansivo**: El área de búsqueda de taxis se incrementa si el cliente espera mucho
+- **Visualización de estado**: Círculos que muestran el rango actual de búsqueda
+- **Tiempo de espera visible**: Contador en tiempo real para cada cliente
+
+### 🆕 Optimizaciones del Sistema
+- **Código limpio**: Eliminado todo el código defensivo innecesario
+- **Imports directos**: Sin verificaciones condicionales de disponibilidad
+- **Lógica esencial**: Solo funcionalidad core para máximo rendimiento
+
+## Instalación y Uso
+
+### Requisitos
 ```bash
 pip install -r requirements.txt
 ```
 
-**Start Openfire:**
+### Ejecutar Demostración
 ```bash
-docker-compose up -d
+python demo_taxi_dispatch.py
 ```
 
-**Configure Openfire:**
-1. Open http://localhost:9090
-2. Complete setup wizard (domain: localhost)
-3. Create admin account: admin/admin123
-4. Install REST API plugin
-5. Enable REST API in plugin settings
+### Controles
+- **Clic izquierdo**: Agregar cliente en esa posición
+- **Botón Pause**: Pausar/reanudar simulación
+- **Cerrar ventana**: Terminar demostración
 
-### 3. Run Examples
+## Archivos Principales
 
-**Basic Simulation:**
-```bash
-python examples/basic_example.py
+### Core del Sistema
+- `demo_taxi_dispatch.py` - Demo principal con Tkinter
+- `src/gui/taxi_tkinter_gui.py` - GUI principal de Tkinter
+- `src/agent/agent.py` - Lógica de agentes de taxi
+- `src/agent/client_agent.py` - Lógica de agentes de cliente
+
+### Archivos de Configuración
+- `src/config.py` - Configuración general
+- `requirements.txt` - Dependencias del proyecto
+
+## Mejoras Implementadas
+
+### Optimizaciones de Rendimiento
+- ✅ Migración completa a Tkinter (eliminado Pygame)
+- ✅ Interpolación cúbica para movimiento suave
+- ✅ Renderizado optimizado con Canvas
+- ✅ Gestión eficiente de eventos
+- ✅ Threading para simulaciones de fondo
+
+### Funcionalidades Mejoradas
+- ✅ **Recogida automática**: Los pasajeros desaparecen al ser recogidos
+- ✅ **Generación continua**: Nuevos clientes aparecen automáticamente
+- ✅ **Población mínima**: Sistema mantiene 6+ clientes siempre
+- ✅ **Estadísticas en tiempo real**: FPS, contadores de entidades
+- ✅ **Interfaz limpia**: Eliminación de archivos obsoletos
+
+### Arquitectura
+- **Separación de responsabilidades**: GUI independiente de lógica de negocio
+- **Threading seguro**: Operaciones de GUI en hilo principal
+- **Gestión de estado**: Estados de taxi y cliente bien definidos
+- **Escalabilidad**: Fácil agregar más funcionalidades
+
+### Limpieza de Código
+- ✅ **Eliminación de código defensivo**: Removidas verificaciones innecesarias de importaciones
+- ✅ **Simplificación de imports**: Imports directos sin try/except cuando no es necesario
+- ✅ **Código más limpio**: Eliminados archivos duplicados y código redundante
+- ✅ **Mejor mantenibilidad**: Estructura de código más simple y legible
+- ✅ **Menos líneas de código**: Manteniendo la misma funcionalidad con menos complejidad
+
+## Estructura del Proyecto
+```
+tfsito/
+├── demo_taxi_dispatch.py          # Demo principal
+├── src/
+│   ├── gui/
+│   │   └── taxi_tkinter_gui.py     # GUI principal (Tkinter)
+│   ├── agent/
+│   │   ├── agent.py                # Agente de taxi
+│   │   ├── client_agent.py         # Agente de cliente
+│   │   └── libs/
+│   │       └── taxi_constraints.py # Restricciones OR-Tools
+│   └── services/
+│       └── openfire_api.py         # API para SPADE/XMPP
+├── requirements.txt                # Dependencias
+└── README.md                       # Este archivo
 ```
 
-**Distributed Simulation:**
-```bash
-python examples/distributed_example.py
-```
+## Próximas Mejoras
+- [ ] Integración con sistema de restricciones OR-Tools
+- [ ] Métricas de rendimiento del sistema
+- [ ] Mapas reales con coordenadas GPS
+- [ ] Base de datos para persistencia
+- [ ] API REST para integración externa
 
-**Performance Testing:**
-```bash
-python examples/performance_test.py
-```
-
-## Usage
-
-### Running Agents
-
-**Single Host:**
-```bash
-# Terminal 1: Start agents
-python main.py --mode agent --host host1 --agent-count 5
-
-# Terminal 2: Start GUI monitor
-python main.py --mode gui
-```
-
-**Multiple Hosts:**
-```bash
-# Host 1
-python main.py --mode agent --host host1 --agent-count 10
-
-# Host 2
-python main.py --mode agent --host host2 --agent-count 10 --openfire-host <host1-ip>
-
-# Monitor (any host)
-python main.py --mode gui --openfire-host <host1-ip>
-```
-
-### GUI Controls
-- **Click**: Select agent for detailed info
-- **D**: Toggle danger zones
-- **R**: Toggle resources
-- **A**: Toggle alliance connections
-- **P**: Toggle movement paths
-- **ESC**: Exit
-
-## Architecture
-
-### Core Components
-- **Environment**: World simulation and state management
-- **Agents**: SPADE-based autonomous survivors
-- **Constraints**: OR-Tools optimization for decisions
-- **Communication**: Openfire XMPP server integration
-- **GUI**: Real-time Pygame visualization
-
-### Agent Behaviors
-- **Survival**: Health management and resource consumption
-- **Exploration**: Intelligent movement and resource discovery
-- **Communication**: Message handling and information sharing
-- **Alliance**: Trust-based coalition formation
-
-### Constraint Programming
-- **Movement**: Avoid danger zones, minimize resource distance
-- **Resources**: Optimize allocation within carry capacity
-- **Alliances**: Trust-threshold based partner selection
-- **Conflicts**: Automated resolution strategies
-
-## Configuration
-
-Key settings in `config.py`:
-
-```python
-# World
-grid_width = 50
-grid_height = 50
-danger_zone_count = 10
-
-# Agents  
-initial_agent_health = 100
-max_carry_capacity = 20
-trust_threshold = 0.6
-
-# Communication
-openfire_host = "localhost"
-openfire_port = 9090
-```
-
-Environment variables:
-- `OPENFIRE_HOST`: Openfire server address
-- `OPENFIRE_PORT`: Openfire server port
-- `GRID_WIDTH/HEIGHT`: World dimensions
-
-## Examples
-
-### Basic Agent Creation
-```python
-from agent import create_agent
-from environment import environment
-
-# Start environment
-environment.start_simulation()
-
-# Create agent
-agent = await create_agent("survivor_001", "host1")
-
-# Monitor
-world_state = environment.get_world_state()
-```
-
-### Constraint Solving
-```python
-from constraints import constraint_solver, MovementConstraints
-
-constraints = MovementConstraints(
-    agent_id="agent_001",
-    current_position=Position(10, 10),
-    forbidden_zones=[Position(11, 11)],  # Danger
-    target_resources=[Position(15, 15)]   # Food
-)
-
-solution = constraint_solver.solve_movement_constraints(constraints)
-```
-
-### Alliance Formation
-```python
-# Agents evaluate potential allies based on trust
-alliance_id = environment.create_alliance(
-    leader_id="agent_001",
-    member_ids=["agent_002", "agent_003"]
-)
-```
-
-## Monitoring & Debugging
-
-### Logs
-- `simulation.log`: Comprehensive system logs
-- Console output: Real-time status updates
-
-### Performance Monitoring
-- Built-in FPS counter in GUI
-- Performance test suite in `examples/`
-- Memory and CPU usage tracking
-
-### Health Checks
-```python
-from openfire_api import openfire_api
-
-# Check Openfire status
-if openfire_api.health_check():
-    print("Openfire is running")
-
-# List online agents
-online_users = openfire_api.get_online_users()
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Openfire Connection Failed:**
-```bash
-# Check container status
-docker-compose ps
-
-# View logs
-docker-compose logs openfire
-```
-
-**Agent Spawn Failures:**
-- Verify REST API plugin is installed
-- Check admin credentials
-- Ensure domain is configured correctly
-
-**GUI Performance Issues:**
-- Reduce agent count (`--agent-count`)
-- Lower FPS in config
-- Decrease grid size
-
-**Memory Usage:**
-- Monitor with performance tests
-- Clean up dead agents
-- Limit event history
-
-**SPADE Agent 'send' Method Error:**
-```bash
-# If you see: AttributeError: 'SurvivorAgent' object has no attribute 'send'
-# Run the agent fix test:
-python test_agent_fix.py
-
-# This error has been fixed in the code - behaviors now use self.send() instead of agent.send()
-```
-
-**Missing Dependencies:**
-```bash
-# Install missing packages
-pip install spade
-pip install ortools
-pip install pygame
-pip install requests
-
-# Or install all at once
-pip install -r requirements.txt
-```
-
-### Debug Commands
-```bash
-# Check Openfire API
-curl -u admin:admin123 http://localhost:9090/plugins/restapi/v1/system/properties
-
-# View agent status
-python -c "from environment import environment; print(environment.get_world_state())"
-
-# Performance test
-python examples/performance_test.py
-```
-
-## Development
-
-### Project Structure
-```
-├── agent.py              # SPADE agent implementation
-├── constraints.py        # OR-Tools constraint programming  
-├── environment.py        # World simulation
-├── openfire_api.py       # REST API integration
-├── gui.py                # Pygame visualization
-├── config.py             # Configuration management
-├── main.py               # Entry point
-├── setup.py              # Automated setup
-├── examples/             # Usage examples
-├── docker-compose.yml    # Openfire deployment
-└── requirements.txt      # Dependencies
-```
-
-### Adding New Features
-1. **New Agent Behavior**: Extend behavior classes in `agent.py`
-2. **Constraint Types**: Add solvers in `constraints.py`
-3. **GUI Elements**: Extend drawing methods in `gui.py`
-4. **Communication**: Add message types in agent communication
-
-### Testing
-```bash
-# Run all examples
-python examples/basic_example.py
-python examples/distributed_example.py
-python examples/performance_test.py
-
-# Manual testing
-python main.py --mode agent --agent-count 1
-python main.py --mode gui
-```
-
-## Performance
-
-### Tested Limits
-- **Agents**: 500+ agents per environment
-- **Hosts**: Successfully tested on 5+ distributed hosts
-- **Real-time**: 30+ FPS GUI with 100+ agents
-- **Latency**: <10ms constraint solving per decision
-
-### Optimization Tips
-- Use fewer agents for initial testing
-- Adjust heartbeat intervals for network efficiency
-- Monitor memory usage with many agents
-- Consider database backend for large deployments
-
-## License
-
-This project is provided as-is for educational and research purposes.
-
-## Support
-
-For issues and questions:
-1. Check the troubleshooting guide above
-2. Review logs in `simulation.log`
-3. Run performance tests to identify bottlenecks
-4. Consult `ARCHITECTURE.md` for detailed implementation
+## Desarrollo
+Desarrollado como parte del curso de Tópicos en Inteligencia Artificial, enfocado en sistemas multi-agente y optimización de interfaces de usuario.

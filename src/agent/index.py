@@ -1,8 +1,8 @@
 import logging
 from typing import Optional
-from agent.agent import SurvivorAgent
-from config import config
-from services.openfire_api import openfire_api
+from .agent import SurvivorAgent
+from ..config import config
+from ..services.openfire_api import openfire_api
 logger = logging.getLogger(__name__)
 
 
