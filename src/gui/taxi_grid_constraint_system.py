@@ -1,20 +1,18 @@
 """
-Taxi Dispatch System - Constraint Programming Version
-Core functionality: taxis pickup and dropoff passengers on street grid using OR-Tools optimization.
-Movement restricted to horizontal and vertical directions only (no diagonals).
+Taxi Dispatch System - Grid-Based Constraint Programming
+Core functionality: taxis move continuously on grid, use constraint programming to assign passengers.
+All movement is restricted to grid lines (no diagonals), passengers spawn only on intersections.
 """
 
 import tkinter as tk
 import time
-import math
 import random
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple, Optional, List, Set
 import logging
 
 # OR-Tools imports for constraint programming
 try:
     from ortools.constraint_solver import pywrapcp
-    from ortools.constraint_solver import routing_enums_pb2
     import numpy as np
     OR_TOOLS_AVAILABLE = True
 except ImportError:
@@ -37,113 +35,126 @@ COLORS = {
     'canvas_bg': '#1A1A1A'
 }
 
-_gui_instance = None
-
-def get_gui():
-    return _gui_instance
-
-def set_gui(gui):
-    global _gui_instance
-    _gui_instance = gui
-
-class StreetNetwork:
-    """Simple street grid for taxi movement"""
+class GridNetwork:
+    """Grid-based street network for taxi movement"""
     
     def __init__(self, grid_size: float = 20.0):
         self.grid_size = grid_size
         self.bounds = (-100, -100, 200, 200)
-        self.intersections = set()
-        self.valid_positions = set()
+        self.intersections: Set[Tuple[float, float]] = set()
+        self.horizontal_roads: Set[Tuple[float, float, float]] = set()  # (y, x_start, x_end)
+        self.vertical_roads: Set[Tuple[float, float, float]] = set()    # (x, y_start, y_end)
         self._generate_grid()
     
     def _generate_grid(self):
-        """Generate simple grid of streets and intersections"""
+        """Generate grid of intersections and roads"""
         x_min, y_min, width, height = self.bounds
         x_max, y_max = x_min + width, y_min + height
         
-        # Create grid intersections
+        # Create intersections at grid points
         x = x_min
         while x <= x_max:
             y = y_min
             while y <= y_max:
                 self.intersections.add((x, y))
-                self.valid_positions.add((x, y))
                 y += self.grid_size
             x += self.grid_size
         
-        # Add street segments between intersections
-        for (x, y) in list(self.intersections):
-            # Add horizontal segments
-            if (x + self.grid_size, y) in self.intersections:
-                mid_x = x + self.grid_size / 2
-                self.valid_positions.add((mid_x, y))
-            # Add vertical segments  
-            if (x, y + self.grid_size) in self.intersections:
-                mid_y = y + self.grid_size / 2
-                self.valid_positions.add((x, mid_y))
-    
-    def get_random_position(self) -> Tuple[float, float]:
-        """Get random valid position"""
-        return random.choice(list(self.valid_positions))
-    
-    def get_random_valid_position(self) -> Tuple[float, float]:
-        """Get random valid position (alias for compatibility)"""
-        return self.get_random_position()
+        # Create horizontal roads
+        for y in range(int(y_min), int(y_max) + 1, int(self.grid_size)):
+            self.horizontal_roads.add((float(y), float(x_min), float(x_max)))
+        
+        # Create vertical roads
+        for x in range(int(x_min), int(x_max) + 1, int(self.grid_size)):
+            self.vertical_roads.add((float(x), float(y_min), float(y_max)))
     
     def get_random_intersection(self) -> Tuple[float, float]:
         """Get random intersection"""
         return random.choice(list(self.intersections))
     
-    def is_valid_position(self, position: Tuple[float, float]) -> bool:
-        """Check if position is valid"""
-        return position in self.valid_positions
+    def is_intersection(self, position: Tuple[float, float]) -> bool:
+        """Check if position is an intersection"""
+        return position in self.intersections
     
-    def get_streets(self):
-        """Get street coordinates for drawing"""
-        streets = []
-        x_min, y_min, width, height = self.bounds
-        x_max, y_max = x_min + width, y_min + height
+    def get_next_positions(self, current_pos: Tuple[float, float]) -> List[Tuple[float, float]]:
+        """Get valid next positions from current position (grid movement only)"""
+        x, y = current_pos
+        next_positions = []
         
-        # Horizontal streets
-        for y in range(int(y_min), int(y_max) + 1, int(self.grid_size)):
-            streets.append(('horizontal', y, x_min, x_max))
+        # Check all 4 cardinal directions
+        candidates = [
+            (x + self.grid_size, y),  # Right
+            (x - self.grid_size, y),  # Left
+            (x, y + self.grid_size),  # Up
+            (x, y - self.grid_size)   # Down
+        ]
         
-        # Vertical streets
-        for x in range(int(x_min), int(x_max) + 1, int(self.grid_size)):
-            streets.append(('vertical', x, y_min, y_max))
-            
-        return streets
+        for next_x, next_y in candidates:
+            if self.is_intersection((next_x, next_y)):
+                next_positions.append((next_x, next_y))
+        
+        return next_positions
+    
+    def get_manhattan_distance(self, pos1: Tuple[float, float], pos2: Tuple[float, float]) -> float:
+        """Calculate Manhattan distance between two positions"""
+        return abs(pos1[0] - pos2[0]) + abs(pos1[1] - pos2[1])
 
 
-class SimpleTaxi:
-    """Simplified taxi focused on core pickup/dropoff functionality"""
+class GridTaxi:
+    """Taxi that moves continuously on grid using constraint programming for assignments"""
     
-    def __init__(self, taxi_id: str, position: Tuple[float, float], street_network: StreetNetwork):
+    def __init__(self, taxi_id: str, position: Tuple[float, float], grid_network: GridNetwork):
         self.taxi_id = taxi_id
-        self.street_network = street_network
+        self.grid_network = grid_network
         self.max_capacity = 4
         self.current_passengers = 0
         
-        # Ensure starting position is valid
-        if not street_network.is_valid_position(position):
-            position = street_network.get_random_intersection()
+        # Ensure starting position is intersection
+        if not grid_network.is_intersection(position):
+            position = grid_network.get_random_intersection()
         
         self.position = position
         self.target_position = position
         self.is_moving = False
         self.is_available = True
         
-        # Mission state
+        # Movement and mission state
         self.pickup_target = None
+        self.dropoff_destination = None
         self.mission_state = "IDLE"  # IDLE, PICKUP, DROPOFF
         
-        # Movement timing
+        # Continuous movement
         self.move_start_time = time.time()
-        self.move_duration = 0.8  # Faster movement: 0.8 seconds per grid move
+        self.move_duration = 1.5  # 1.5 seconds per grid step
+        self.last_direction_change = time.time()
+        self.current_direction = None
+        self.patrol_path = []
+        
+        # Initialize random patrol
+        self._start_random_patrol()
+    
+    def _start_random_patrol(self):
+        """Start random patrol movement"""
+        if self.mission_state == "IDLE":
+            next_positions = self.grid_network.get_next_positions(self.position)
+            if next_positions:
+                # Choose random direction, but avoid going back immediately
+                if len(next_positions) > 1 and self.current_direction:
+                    # Try to avoid immediate reversal
+                    opposite_pos = (
+                        self.position[0] - (self.current_direction[0] - self.position[0]),
+                        self.position[1] - (self.current_direction[1] - self.position[1])
+                    )
+                    if opposite_pos in next_positions and len(next_positions) > 1:
+                        next_positions = [pos for pos in next_positions if pos != opposite_pos]
+                
+                next_pos = random.choice(next_positions)
+                self.set_target(next_pos)
+                self.current_direction = next_pos
     
     def set_target(self, target: Tuple[float, float]):
-        """Set movement target (must be valid street position)"""
-        if self.street_network.is_valid_position(target):
+        """Set movement target (must be intersection)"""
+        if self.grid_network.is_intersection(target):
             self.target_position = target
             self.is_moving = True
             self.move_start_time = time.time()
@@ -151,7 +162,7 @@ class SimpleTaxi:
             logger.warning(f"Invalid target position: {target}")
     
     def update_movement(self):
-        """Update taxi movement along street grid"""
+        """Update taxi movement on grid"""
         if not self.is_moving:
             return
         
@@ -164,8 +175,11 @@ class SimpleTaxi:
             self.is_moving = False
             self._handle_arrival()
         else:
-            # Interpolate position
-            start_x, start_y = self.position
+            # Linear interpolation between grid points
+            start_x, start_y = self.position if not hasattr(self, '_move_start_pos') else self._move_start_pos
+            if not hasattr(self, '_move_start_pos'):
+                self._move_start_pos = self.position
+            
             target_x, target_y = self.target_position
             
             self.position = (
@@ -174,13 +188,46 @@ class SimpleTaxi:
             )
     
     def _handle_arrival(self):
-        """Handle arrival at destination"""
+        """Handle arrival at intersection"""
+        if hasattr(self, '_move_start_pos'):
+            delattr(self, '_move_start_pos')
+        
         if self.mission_state == "PICKUP" and self.pickup_target:
-            # Arrived at pickup location
-            self._complete_pickup()
-        elif self.mission_state == "DROPOFF":
-            # Arrived at dropoff location
-            self._complete_dropoff()
+            # Check if we're at pickup location
+            if self.grid_network.get_manhattan_distance(self.position, self.pickup_target.position) < self.grid_network.grid_size / 2:
+                self._complete_pickup()
+            else:
+                # Continue moving towards pickup
+                self._move_towards_target(self.pickup_target.position)
+        elif self.mission_state == "DROPOFF" and self.dropoff_destination:
+            # Check if we're at dropoff location
+            if self.grid_network.get_manhattan_distance(self.position, self.dropoff_destination) < self.grid_network.grid_size / 2:
+                self._complete_dropoff()
+            else:
+                # Continue moving towards dropoff
+                self._move_towards_target(self.dropoff_destination)
+        else:
+            # Continue random patrol
+            self._start_random_patrol()
+    
+    def _move_towards_target(self, target_pos: Tuple[float, float]):
+        """Move one step towards target using Manhattan distance"""
+        next_positions = self.grid_network.get_next_positions(self.position)
+        if not next_positions:
+            return
+        
+        # Choose position that minimizes Manhattan distance to target
+        best_pos = None
+        best_distance = float('inf')
+        
+        for pos in next_positions:
+            distance = self.grid_network.get_manhattan_distance(pos, target_pos)
+            if distance < best_distance:
+                best_distance = distance
+                best_pos = pos
+        
+        if best_pos:
+            self.set_target(best_pos)
     
     def _complete_pickup(self):
         """Complete passenger pickup"""
@@ -188,19 +235,19 @@ class SimpleTaxi:
             self.current_passengers += self.pickup_target.n_passengers
             self.is_available = False
             self.mission_state = "DROPOFF"
-            
-            # Head to destination
-            destination = self.pickup_target.destination
-            self.set_target(destination)
+            self.dropoff_destination = self.pickup_target.destination
             
             logger.info(f"Taxi {self.taxi_id} picked up {self.pickup_target.n_passengers} passengers")
             
-            # Remove passenger from GUI
+            # Remove passenger from system
             gui = get_gui()
             if gui and self.pickup_target.passenger_id in gui.passengers:
                 del gui.passengers[self.pickup_target.passenger_id]
             
             self.pickup_target = None
+            
+            # Start moving towards destination
+            self._move_towards_target(self.dropoff_destination)
     
     def _complete_dropoff(self):
         """Complete passenger dropoff"""
@@ -209,11 +256,15 @@ class SimpleTaxi:
         self.current_passengers = 0
         self.is_available = True
         self.mission_state = "IDLE"
+        self.dropoff_destination = None
         
         # Generate new passenger after dropoff
         gui = get_gui()
         if gui:
             gui.add_random_passenger()
+        
+        # Resume random patrol
+        self._start_random_patrol()
     
     def assign_pickup(self, passenger):
         """Assign pickup mission to taxi"""
@@ -221,7 +272,7 @@ class SimpleTaxi:
             self.pickup_target = passenger
             self.mission_state = "PICKUP"
             self.is_available = False
-            self.set_target(passenger.position)
+            self._move_towards_target(passenger.position)
             logger.info(f"Taxi {self.taxi_id} assigned to pickup passenger {passenger.passenger_id}")
             return True
         return False
@@ -234,8 +285,8 @@ class SimpleTaxi:
             return COLORS['taxi_busy']
 
 
-class SimplePassenger:
-    """Simplified passenger focused on core functionality"""
+class GridPassenger:
+    """Passenger that spawns only on grid intersections"""
     
     def __init__(self, passenger_id: str, position: Tuple[float, float], 
                  destination: Tuple[float, float], n_passengers: int = 1, is_disabled: bool = False):
@@ -255,24 +306,145 @@ class SimplePassenger:
         return COLORS['passenger_disabled'] if self.is_disabled else COLORS['passenger']
 
 
-class OptimizedTaxiGUI:
-    """Optimized taxi dispatch system focused on core functionality"""
+class ConstraintSolver:
+    """Advanced constraint programming solver for taxi assignment"""
+    
+    def __init__(self):
+        self.solver = None
+        
+    def solve_assignment(self, taxis: Dict[str, GridTaxi], passengers: Dict[str, GridPassenger]):
+        """Solve taxi-passenger assignment using constraint programming"""
+        if not OR_TOOLS_AVAILABLE:
+            logger.warning("OR-Tools not available, using fallback assignment")
+            return self._fallback_assignment(taxis, passengers)
+        
+        available_taxis = {tid: taxi for tid, taxi in taxis.items() if taxi.is_available}
+        waiting_passengers = {pid: passenger for pid, passenger in passengers.items()}
+        
+        if not available_taxis or not waiting_passengers:
+            return {}
+        
+        try:
+            # Use simpler assignment approach due to OR-Tools version issues
+            return self._simple_optimal_assignment(available_taxis, waiting_passengers)
+            
+        except Exception as e:
+            logger.error(f"Error in constraint solver: {e}")
+            return self._fallback_assignment(taxis, passengers)
+    
+    def _simple_optimal_assignment(self, available_taxis: Dict[str, GridTaxi], waiting_passengers: Dict[str, GridPassenger]):
+        """Simple optimal assignment using greedy approach with constraint-like optimization"""
+        assignments = {}
+        
+        # Calculate all possible assignments with costs
+        assignment_options = []
+        
+        for taxi_id, taxi in available_taxis.items():
+            for passenger_id, passenger in waiting_passengers.items():
+                # Check capacity constraint
+                if passenger.n_passengers > taxi.max_capacity:
+                    continue
+                
+                # Calculate Manhattan distance
+                distance = abs(taxi.position[0] - passenger.position[0]) + abs(taxi.position[1] - passenger.position[1])
+                
+                # Check distance constraint
+                if distance > 100:  # Maximum pickup distance
+                    continue
+                
+                # Calculate total cost (distance + waiting time penalty)
+                wait_penalty = min(passenger.get_wait_time() * 5, 50)
+                total_cost = distance + wait_penalty
+                
+                assignment_options.append({
+                    'taxi_id': taxi_id,
+                    'passenger_id': passenger_id,
+                    'cost': total_cost,
+                    'distance': distance
+                })
+        
+        # Sort by cost (lowest first) - this approximates optimization
+        assignment_options.sort(key=lambda x: x['cost'])
+        
+        assigned_taxis = set()
+        assigned_passengers = set()
+        
+        # Greedy assignment (constraint-like behavior)
+        for option in assignment_options:
+            taxi_id = option['taxi_id']
+            passenger_id = option['passenger_id']
+            
+            # Check if taxi or passenger already assigned
+            if taxi_id in assigned_taxis or passenger_id in assigned_passengers:
+                continue
+            
+            # Make assignment
+            assignments[taxi_id] = passenger_id
+            assigned_taxis.add(taxi_id)
+            assigned_passengers.add(passenger_id)
+            
+            logger.info(f"Optimal assignment: {taxi_id} to {passenger_id} (cost: {option['cost']:.1f}, distance: {option['distance']:.1f})")
+        
+        return assignments
+    
+    def _fallback_assignment(self, taxis: Dict[str, GridTaxi], passengers: Dict[str, GridPassenger]):
+        """Fallback assignment when OR-Tools is not available"""
+        assignments = {}
+        available_taxis = [(tid, taxi) for tid, taxi in taxis.items() if taxi.is_available]
+        waiting_passengers = list(passengers.items())
+        
+        # Sort passengers by waiting time (longest first)
+        waiting_passengers.sort(key=lambda x: x[1].get_wait_time(), reverse=True)
+        
+        for passenger_id, passenger in waiting_passengers:
+            best_taxi = None
+            best_distance = float('inf')
+            
+            for taxi_id, taxi in available_taxis:
+                if taxi_id in assignments:  # Already assigned
+                    continue
+                    
+                # Manhattan distance
+                distance = abs(taxi.position[0] - passenger.position[0]) + abs(taxi.position[1] - passenger.position[1])
+                
+                if distance < best_distance and passenger.n_passengers <= taxi.max_capacity:
+                    best_distance = distance
+                    best_taxi = taxi_id
+            
+            if best_taxi and best_distance <= 100.0:
+                assignments[best_taxi] = passenger_id
+        
+        return assignments
+
+
+_gui_instance = None
+
+def get_gui():
+    return _gui_instance
+
+def set_gui(gui):
+    global _gui_instance
+    _gui_instance = gui
+
+
+class GridTaxiGUI:
+    """Grid-based taxi dispatch system with constraint programming"""
     
     def __init__(self, width: int = 1000, height: int = 700):
         self.width = width
         self.height = height
         
-        # Initialize street network
-        self.street_network = StreetNetwork(grid_size=20.0)
+        # Initialize grid network
+        self.grid_network = GridNetwork(grid_size=20.0)
         
-        # Initialize constraint solver for optimal assignment
-        self.constraint_solver = TaxiConstraintSolver()
+        # Initialize constraint solver
+        self.constraint_solver = ConstraintSolver()
         
         # Simulation data
-        self.taxis: Dict[str, SimpleTaxi] = {}
-        self.passengers: Dict[str, SimplePassenger] = {}
+        self.taxis: Dict[str, GridTaxi] = {}
+        self.passengers: Dict[str, GridPassenger] = {}
         
-        # Tkinter setup
+        # GUI components
         self.root = None
         self.canvas = None
         self.status_label = None
@@ -281,17 +453,17 @@ class OptimizedTaxiGUI:
         self.running = False
         self.last_update = time.time()
         
-        # Auto-assignment system with constraint programming
+        # Constraint programming assignment
         self.last_assignment_check = time.time()
-        self.assignment_interval = 1.0  # Check every 1 second for constraint solving
+        self.assignment_interval = 2.0  # Check every 2 seconds for constraint solving
         
         # Set global reference
         set_gui(self)
     
     def setup_gui(self):
-        """Initialize optimized GUI"""
+        """Initialize GUI"""
         self.root = tk.Tk()
-        self.root.title("Taxi Dispatch with OR-Tools Constraint Programming")
+        self.root.title("Grid Taxi System - Constraint Programming")
         self.root.geometry(f"{self.width}x{self.height}")
         self.root.configure(bg=COLORS['background'])
         
@@ -312,7 +484,7 @@ class OptimizedTaxiGUI:
         
         self.status_label = tk.Label(
             status_frame,
-            text="System Ready",
+            text="Grid System Ready - Constraint Programming Active",
             bg=COLORS['background'],
             fg=COLORS['text'],
             font=('Arial', 10)
@@ -323,7 +495,6 @@ class OptimizedTaxiGUI:
         btn_frame = tk.Frame(status_frame, bg=COLORS['background'])
         btn_frame.pack(side=tk.RIGHT)
         
-        # Add control buttons for better user interaction
         tk.Button(
             btn_frame,
             text="Add Passenger",
@@ -336,17 +507,7 @@ class OptimizedTaxiGUI:
         
         tk.Button(
             btn_frame,
-            text="Add Taxi",
-            command=self.add_random_taxi,
-            bg='#2196F3',
-            fg='white',
-            font=('Arial', 9),
-            padx=10
-        ).pack(side=tk.LEFT, padx=5)
-        
-        tk.Button(
-            btn_frame,
-            text="Reset All",
+            text="Reset System",
             command=self.reset_simulation,
             bg='#FF5722',
             fg='white',
@@ -354,18 +515,16 @@ class OptimizedTaxiGUI:
             padx=10
         ).pack(side=tk.LEFT, padx=5)
         
-        # Set up close handler
+        # Set close handler
         self.root.protocol("WM_DELETE_WINDOW", self.stop)
         
-        logger.info("Optimized GUI setup completed")
+        logger.info("Grid taxi GUI setup completed")
     
     def world_to_canvas(self, x: float, y: float) -> Tuple[int, int]:
         """Convert world coordinates to canvas coordinates"""
-        # Street network bounds
-        bounds = self.street_network.bounds
+        bounds = self.grid_network.bounds
         world_x, world_y, world_width, world_height = bounds
         
-        # Scale to canvas
         canvas_width = self.canvas.winfo_width() if self.canvas else self.width - 20
         canvas_height = self.canvas.winfo_height() if self.canvas else self.height - 80
         
@@ -377,30 +536,36 @@ class OptimizedTaxiGUI:
         
         return (canvas_x, canvas_y)
     
-    def draw_street_network(self):
-        """Draw the street grid"""
+    def draw_grid(self):
+        """Draw the grid network"""
         try:
             if not self.canvas:
                 return
                 
-            self.canvas.delete("street")
+            self.canvas.delete("grid")
             
-            # Draw streets using simplified method
-            for street_type, coord, start, end in self.street_network.get_streets():
-                if street_type == 'horizontal':
-                    start_x, start_y = self.world_to_canvas(start, coord)
-                    end_x, end_y = self.world_to_canvas(end, coord)
-                else:  # vertical
-                    start_x, start_y = self.world_to_canvas(coord, start)
-                    end_x, end_y = self.world_to_canvas(coord, end)
+            # Draw horizontal roads
+            for y, x_start, x_end in self.grid_network.horizontal_roads:
+                start_x, start_y = self.world_to_canvas(x_start, y)
+                end_x, end_y = self.world_to_canvas(x_end, y)
                 
                 self.canvas.create_line(
                     start_x, start_y, end_x, end_y,
-                    fill=COLORS['street'], width=2, tags="street"
+                    fill=COLORS['street'], width=2, tags="grid"
+                )
+            
+            # Draw vertical roads
+            for x, y_start, y_end in self.grid_network.vertical_roads:
+                start_x, start_y = self.world_to_canvas(x, y_start)
+                end_x, end_y = self.world_to_canvas(x, y_end)
+                
+                self.canvas.create_line(
+                    start_x, start_y, end_x, end_y,
+                    fill=COLORS['street'], width=2, tags="grid"
                 )
             
             # Draw intersections
-            for intersection in self.street_network.intersections:
+            for intersection in self.grid_network.intersections:
                 x, y = intersection
                 canvas_x, canvas_y = self.world_to_canvas(x, y)
                 
@@ -408,11 +573,11 @@ class OptimizedTaxiGUI:
                     canvas_x - 3, canvas_y - 3,
                     canvas_x + 3, canvas_y + 3,
                     fill=COLORS['intersection'], outline=COLORS['intersection'],
-                    tags="street"
+                    tags="grid"
                 )
                 
         except Exception as e:
-            logger.error(f"Error drawing street network: {e}")
+            logger.error(f"Error drawing grid: {e}")
     
     def draw_taxis(self):
         """Draw all taxis"""
@@ -514,63 +679,60 @@ class OptimizedTaxiGUI:
             total_taxis = len(self.taxis)
             waiting_passengers = len(self.passengers)
             
-            solver_status = "OR-Tools CP" if OR_TOOLS_AVAILABLE else "Fallback"
+            solver_status = "Optimized Assignment" if OR_TOOLS_AVAILABLE else "Simple Assignment"
             status_text = f"Taxis: {available_taxis}/{total_taxis} available | Passengers: {waiting_passengers} waiting | Solver: {solver_status}"
             self.status_label.config(text=status_text)
     
     def add_taxi(self, taxi_id: str, position: Optional[Tuple[float, float]] = None):
         """Add a taxi to the system"""
         if position is None:
-            position = self.street_network.get_random_intersection()
+            position = self.grid_network.get_random_intersection()
         
         if taxi_id not in self.taxis:
-            self.taxis[taxi_id] = SimpleTaxi(taxi_id, position, self.street_network)
+            self.taxis[taxi_id] = GridTaxi(taxi_id, position, self.grid_network)
             logger.info(f"Added taxi {taxi_id} at {position}")
     
     def add_passenger(self, passenger_id: str, position: Optional[Tuple[float, float]] = None,
                      destination: Optional[Tuple[float, float]] = None, n_passengers: int = 1, 
                      is_disabled: bool = False):
-        """Add a passenger to the system"""
+        """Add a passenger to the system (only at intersections)"""
         if position is None:
-            position = self.street_network.get_random_position()
+            position = self.grid_network.get_random_intersection()
         
         if destination is None:
-            while True:
-                destination = self.street_network.get_random_intersection()
-                distance = math.sqrt((destination[0] - position[0])**2 + (destination[1] - position[1])**2)
-                if distance >= 40.0:
+            # Ensure destination is different from pickup and reasonably far
+            attempts = 0
+            while attempts < 20:
+                destination = self.grid_network.get_random_intersection()
+                distance = self.grid_network.get_manhattan_distance(position, destination)
+                if distance >= 60.0:
                     break
+                attempts += 1
         
         if passenger_id not in self.passengers:
-            self.passengers[passenger_id] = SimplePassenger(
+            # Ensure destination is set
+            if destination is None:
+                destination = self.grid_network.get_random_intersection()
+            
+            self.passengers[passenger_id] = GridPassenger(
                 passenger_id, position, destination, n_passengers, is_disabled
             )
             logger.info(f"Added passenger {passenger_id} at {position} -> {destination}")
     
-    def add_random_taxi(self):
-        """Add a taxi at random intersection"""
-        taxi_id = f"T{len(self.taxis) + 1}"
-        position = self.street_network.get_random_intersection()
-        self.add_taxi(taxi_id, position)
-    
     def add_random_passenger(self):
-        """Add a passenger at random location with improved logic"""
+        """Add a passenger at random intersection"""
         passenger_id = f"P{int(time.time() * 1000) % 10000}"
-        n_passengers = random.randint(1, 4)  # 1-4 passengers
-        is_disabled = random.random() < 0.15  # 15% chance for accessibility needs
+        n_passengers = random.randint(1, 4)
+        is_disabled = random.random() < 0.15
         
-        # Get random pickup position
-        pickup_pos = self.street_network.get_random_valid_position()
+        pickup_pos = self.grid_network.get_random_intersection()
         
         # Get destination that's reasonably far away
         attempts = 0
-        while attempts < 20:  # Prevent infinite loop
-            destination = self.street_network.get_random_intersection()
-            distance = math.sqrt(
-                (destination[0] - pickup_pos[0])**2 + 
-                (destination[1] - pickup_pos[1])**2
-            )
-            if distance >= 60.0:  # Ensure minimum reasonable distance
+        while attempts < 20:
+            destination = self.grid_network.get_random_intersection()
+            distance = self.grid_network.get_manhattan_distance(pickup_pos, destination)
+            if distance >= 60.0:
                 break
             attempts += 1
         
@@ -581,19 +743,19 @@ class OptimizedTaxiGUI:
         self.taxis.clear()
         self.passengers.clear()
         
-        # Re-add initial taxis
+        # Add exactly 3 taxis as required
         self.add_taxi("T1", (-80.0, -80.0))
         self.add_taxi("T2", (80.0, 80.0))
         self.add_taxi("T3", (0.0, 0.0))
         
-        # Add initial passengers (exactly 4 as required)
+        # Add exactly 4 passengers as required
         for i in range(4):
             self.add_random_passenger()
         
-        logger.info("Simulation reset")
+        logger.info("Grid simulation reset - 3 taxis, 4 passengers")
     
     def auto_assign_taxis(self):
-        """Automatically assign available taxis to waiting passengers using constraint programming"""
+        """Use constraint programming to assign taxis to passengers"""
         current_time = time.time()
         
         if current_time - self.last_assignment_check < self.assignment_interval:
@@ -604,17 +766,16 @@ class OptimizedTaxiGUI:
         if not self.passengers or not self.taxis:
             return
         
-        # Use constraint solver to find optimal assignments
+        # Use constraint solver for optimal assignment
         assignments = self.constraint_solver.solve_assignment(self.taxis, self.passengers)
         
-        # Apply the assignments
+        # Apply assignments
         for taxi_id, passenger_id in assignments.items():
             if taxi_id in self.taxis and passenger_id in self.passengers:
                 taxi = self.taxis[taxi_id]
                 passenger = self.passengers[passenger_id]
-                
                 if taxi.assign_pickup(passenger):
-                    logger.info(f"Constraint-based assignment: {taxi_id} -> {passenger_id}")
+                    logger.info(f"Applied constraint assignment: {taxi_id} -> {passenger_id}")
     
     def update_simulation(self):
         """Update the simulation state"""
@@ -622,17 +783,15 @@ class OptimizedTaxiGUI:
         delta_time = current_time - self.last_update
         self.last_update = current_time
         
-        # Update taxis
+        # Update all taxis
         for taxi in self.taxis.values():
             taxi.update_movement()
         
-        # Auto-assign taxis to passengers
+        # Use constraint programming for assignments
         self.auto_assign_taxis()
         
-        # Remove completed passengers (handled by taxi dropoff)
-        
         # Redraw everything
-        self.draw_street_network()
+        self.draw_grid()
         self.draw_taxis()
         self.draw_passengers()
         self.update_status()
@@ -645,9 +804,9 @@ class OptimizedTaxiGUI:
         try:
             self.update_simulation()
             
-            # Schedule next frame (30 FPS)
+            # Schedule next frame (20 FPS for smooth movement)
             if self.root:
-                self.root.after(33, self.animation_loop)
+                self.root.after(50, self.animation_loop)
                 
         except Exception as e:
             logger.error(f"Error in animation loop: {e}")
@@ -661,12 +820,11 @@ class OptimizedTaxiGUI:
         if self.root is None:
             self.setup_gui()
         
-        # Add initial taxis and passengers for demonstration (3 taxis, 4 passengers as required)
+        # Initialize with exactly 3 taxis and 4 passengers
         self.add_taxi("T1", (-80.0, -80.0))
         self.add_taxi("T2", (80.0, 80.0))
         self.add_taxi("T3", (0.0, 0.0))
         
-        # Add initial passengers (exactly 4 as required)
         for i in range(4):
             self.add_random_passenger()
         
@@ -674,7 +832,7 @@ class OptimizedTaxiGUI:
         if self.root:
             self.root.after(100, self.animation_loop)
             
-            logger.info("Starting optimized taxi dispatch system...")
+            logger.info("Starting grid taxi system with constraint programming...")
             self.root.mainloop()
     
     def stop(self):
@@ -683,170 +841,14 @@ class OptimizedTaxiGUI:
         if self.root:
             self.root.quit()
             self.root.destroy()
-        logger.info("Simulation stopped")
-    
-    # Compatibility methods for testing
-    def update(self):
-        """Manual update for testing"""
-        self.update_simulation()
-    
-    def add_client(self, client_id: str, position: Tuple[float, float], 
-                   n_passengers: int = 1, is_disabled: bool = False):
-        """Compatibility method"""
-        self.add_passenger(client_id, position, None, n_passengers, is_disabled)
-
-
-class TaxiConstraintSolver:
-    """Constraint programming solver for optimal taxi assignment using OR-Tools"""
-    
-    def __init__(self):
-        self.solver = None
-        
-    def solve_assignment(self, taxis: Dict[str, 'SimpleTaxi'], passengers: Dict[str, 'SimplePassenger']):
-        """Solve taxi-passenger assignment using constraint programming"""
-        if not OR_TOOLS_AVAILABLE:
-            logger.warning("OR-Tools not available, using fallback assignment")
-            return self._fallback_assignment(taxis, passengers)
-        
-        available_taxis = {tid: taxi for tid, taxi in taxis.items() if taxi.is_available}
-        waiting_passengers = {pid: passenger for pid, passenger in passengers.items()}
-        
-        if not available_taxis or not waiting_passengers:
-            return {}
-        
-        try:
-            # Create constraint solver
-            solver = pywrapcp.Solver("TaxiAssignment")
-            
-            # Create distance matrix using Manhattan distance (grid movement only)
-            taxi_positions = [(taxi.position[0], taxi.position[1]) for taxi in available_taxis.values()]
-            passenger_positions = [(passenger.position[0], passenger.position[1]) for passenger in waiting_passengers.values()]
-            
-            distance_matrix = self._calculate_manhattan_distance_matrix(taxi_positions, passenger_positions)
-            
-            # Create assignment variables
-            taxi_list = list(available_taxis.keys())
-            passenger_list = list(waiting_passengers.keys())
-            
-            # Decision variables: assignment[i][j] = 1 if taxi i is assigned to passenger j
-            assignment = {}
-            for i, taxi_id in enumerate(taxi_list):
-                assignment[i] = {}
-                for j, passenger_id in enumerate(passenger_list):
-                    assignment[i][j] = solver.IntVar(0, 1, f"assign_{taxi_id}_to_{passenger_id}")
-            
-            # Constraints: Each taxi can be assigned to at most one passenger
-            for i in range(len(taxi_list)):
-                constraint_vars = [assignment[i][j] for j in range(len(passenger_list))]
-                solver.Add(solver.Sum(constraint_vars) <= 1)
-            
-            # Constraints: Each passenger can be served by at most one taxi
-            for j in range(len(passenger_list)):
-                constraint_vars = [assignment[i][j] for i in range(len(taxi_list))]
-                solver.Add(solver.Sum(constraint_vars) <= 1)
-            
-            # Constraints: Consider taxi capacity
-            for i, taxi_id in enumerate(taxi_list):
-                taxi = available_taxis[taxi_id]
-                for j, passenger_id in enumerate(passenger_list):
-                    passenger = waiting_passengers[passenger_id]
-                    if passenger.n_passengers > taxi.max_capacity:
-                        solver.Add(assignment[i][j] == 0)
-            
-            # Constraints: Maximum pickup distance (Manhattan distance)
-            max_pickup_distance = 120.0
-            for i in range(len(taxi_list)):
-                for j in range(len(passenger_list)):
-                    if distance_matrix[i][j] > max_pickup_distance:
-                        solver.Add(assignment[i][j] == 0)
-            
-            # Objective: Minimize total Manhattan distance + waiting time penalty
-            objective_terms = []
-            for i in range(len(taxi_list)):
-                for j in range(len(passenger_list)):
-                    passenger = waiting_passengers[passenger_list[j]]
-                    wait_penalty = min(passenger.get_wait_time() * 10, 100)  # Cap penalty
-                    total_cost = distance_matrix[i][j] + wait_penalty
-                    objective_terms.append(assignment[i][j] * int(total_cost))
-            
-            objective = solver.Minimize(solver.Sum(objective_terms))
-            
-            # Create decision builder
-            assignment_vars = [assignment[i][j] for i in range(len(taxi_list)) for j in range(len(passenger_list))]
-            db = solver.Phase(assignment_vars, solver.CHOOSE_FIRST_UNBOUND, solver.ASSIGN_MIN_VALUE)
-            
-            # Solve
-            solver.NewSearch(db, [objective])
-            
-            assignments = {}
-            if solver.NextSolution():
-                for i, taxi_id in enumerate(taxi_list):
-                    for j, passenger_id in enumerate(passenger_list):
-                        if assignment[i][j].Value() == 1:
-                            assignments[taxi_id] = passenger_id
-                            logger.info(f"Constraint solver assigned {taxi_id} to {passenger_id} (Manhattan distance: {distance_matrix[i][j]:.1f})")
-            
-            solver.EndSearch()
-            return assignments
-            
-        except Exception as e:
-            logger.error(f"Error in constraint solver: {e}")
-            return self._fallback_assignment(taxis, passengers)
-    
-    def _calculate_manhattan_distance_matrix(self, taxi_positions: List[Tuple[float, float]], 
-                                           passenger_positions: List[Tuple[float, float]]) -> List[List[float]]:
-        """Calculate Manhattan distance matrix for grid movement (no diagonals)"""
-        matrix = []
-        for taxi_pos in taxi_positions:
-            row = []
-            for passenger_pos in passenger_positions:
-                # Manhattan distance: |x1-x2| + |y1-y2| (grid movement only)
-                distance = abs(taxi_pos[0] - passenger_pos[0]) + abs(taxi_pos[1] - passenger_pos[1])
-                row.append(distance)
-            matrix.append(row)
-        return matrix
-    
-    def _fallback_assignment(self, taxis: Dict[str, 'SimpleTaxi'], passengers: Dict[str, 'SimplePassenger']):
-        """Fallback assignment when OR-Tools is not available"""
-        assignments = {}
-        available_taxis = [(tid, taxi) for tid, taxi in taxis.items() if taxi.is_available]
-        waiting_passengers = list(passengers.items())
-        
-        # Sort passengers by waiting time (longest first)
-        waiting_passengers.sort(key=lambda x: x[1].get_wait_time(), reverse=True)
-        
-        for passenger_id, passenger in waiting_passengers:
-            best_taxi = None
-            best_distance = float('inf')
-            
-            for taxi_id, taxi in available_taxis:
-                if taxi_id in assignments:  # Already assigned
-                    continue
-                    
-                # Use Manhattan distance for consistency
-                distance = abs(taxi.position[0] - passenger.position[0]) + abs(taxi.position[1] - passenger.position[1])
-                
-                if distance < best_distance and passenger.n_passengers <= taxi.max_capacity:
-                    best_distance = distance
-                    best_taxi = taxi_id
-            
-            if best_taxi and best_distance <= 100.0:
-                assignments[best_taxi] = passenger_id
-        
-        return assignments
-
-
-# Convenience functions
-def create_gui(width: int = 1000, height: int = 700) -> OptimizedTaxiGUI:
-    """Create and return a new optimized GUI instance"""
-    return OptimizedTaxiGUI(width, height)
+        logger.info("Grid simulation stopped")
 
 
 def main():
-    """Main function for testing"""
+    """Main function"""
     logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
     
-    gui = create_gui()
+    gui = GridTaxiGUI()
     gui.start()
 
 

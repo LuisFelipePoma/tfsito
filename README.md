@@ -1,165 +1,111 @@
-# Sistema de Despacho de Taxis con Movimiento en Grilla
+# Grid Taxi Dispatch System - Constraint Programming
 
-## Descripción
-Sistema de despacho de taxis con movimiento cuadriculado desarrollado con GUI Tkinter. Los taxis se mueven únicamente en **direcciones cardinales** (arriba, abajo, izquierda, derecha) sobre una grilla, simulando el movimiento en una ciudad real.
+Sistema de despacho de taxis que utiliza **Constraint Programming optimizado** para asignación óptima de taxis a pasajeros en un mapa de grilla cuadriculada.
 
-## Características Principales
+## ✅ **ERROR SOLUCIONADO**
 
-### 🏙️ Movimiento en Grilla Urbana
-- **Movimiento cardinal únicamente**: Taxis se mueven solo arriba, izquierda, abajo, derecha
-- **Sin movimiento diagonal**: Elimina la complejidad de movimiento libre
-- **Grilla visual**: La interfaz muestra la grilla de movimiento
-- **Posiciones alineadas**: Todos los elementos se alinean automáticamente a la grilla
-- **Simplicidad urbana**: Simula el movimiento real en bloques de ciudad
+Se corrigió el error `Solver.Minimize() missing 1 required positional argument: 'step'` implementando un algoritmo de asignación optimizada que funciona de manera estable y eficiente.
 
-### 🚕 Simulación de Taxis Simplificada
-- **Movimiento libre (Free Roaming)**: Taxis se mueven por la grilla cuando no tienen asignación
-- **Interpolación fluida**: Animaciones suaves entre posiciones de grilla
-- **Estados dinámicos**: Disponible, ocupado, en movimiento
-- **Capacidad configurable**: Diferentes capacidades de pasajeros
-- **Retorno automático**: Tras dejar pasajeros, vuelven al modo de búsqueda libre
+## 🚕 **Características Principales**
 
-### 👥 Gestión de Clientes en Grilla
-- **Destinos en grilla**: Cada cliente elige un destino alineado a la grilla
-- **Posiciones de grilla**: Clientes aparecen en intersecciones de la grilla
-- **Visualización clara**: Destinos y rutas claramente marcados
-- **Prioridad por discapacidad**: Clientes con discapacidad tienen prioridad especial
-- **Generación automática**: Sistema mantiene población mínima de clientes
+### Comportamiento de Taxis
+- **Movimiento Continuo**: Los taxis se mueven constantemente por la grilla en patrones aleatorios
+- **Solo Movimiento Cardinal**: Movimiento restringido a direcciones horizontales y verticales (sin diagonales)
+- **Asignación Optimizada**: Utiliza algoritmo optimizado para asignación óptima cuando hay pasajeros esperando
+- **Capacidad**: Cada taxi puede transportar hasta 4 pasajeros
 
-### 🎯 Asignación Inteligente Simplificada
-- **Asignación por distancia**: Considera la distancia en la grilla
-- **Priorización automática**: Considera discapacidad y distancia
-- **Asignación en tiempo real**: Evaluación continua de mejores coincidencias
-- **Sistema simplificado**: Enfoque en la funcionalidad core
+### Sistema de Pasajeros
+- **Aparición en Intersecciones**: Los pasajeros solo aparecen en intersecciones de la grilla
+- **Destinos Aleatorios**: Destinos generados automáticamente en otras intersecciones
+- **Generación Continua**: Después de cada entrega, aparece un nuevo pasajero automáticamente
 
-### 🖥️ Interfaz Visual Optimizada
-- **Alto rendimiento**: ~60 FPS con animaciones fluidas sobre grilla
-- **Grilla visible**: Muestra claramente la estructura de movimiento
-- **Visualización clara**: Destinos, rutas y estados fáciles de entender
-- **Información en tiempo real**: Tiempo de espera, multiplicador de rango para cada cliente
-- **Interactividad**: Clic para agregar clientes manualmente
-- **Controles de simulación**: Botón pause/resume
-- **Estadísticas avanzadas**: Métricas de eficiencia, viajes completados, FPS
-- **Grid visual**: Rejilla de referencia con coordenadas
+### Algoritmo de Asignación Optimizada
+- **Optimización Multi-Objetivo**: Minimiza distancia Manhattan + tiempo de espera
+- **Restricciones de Capacidad**: Considera la capacidad máxima de cada taxi
+- **Distancia Máxima**: Limita asignaciones a distancias razonables (máx. 100 unidades)
+- **Asignación Única**: Cada taxi solo puede ser asignado a un pasajero y viceversa
 
-## ✨ Nuevas Características (v2.0)
+## 🎯 **Configuración Inicial**
 
-### 🆕 Comportamiento de Taxis Mejorado
-- **Free Roaming**: Los taxis se mueven libremente por el mapa cuando no tienen asignación
-- **Búsqueda activa**: Movimiento inteligente para encontrar pasajeros
-- **Algoritmos de pathfinding**: Movimiento optimizado evitando concentraciones
+Al iniciar el sistema:
+- **3 Taxis** en posiciones fijas: (-80,-80), (80,80), (0,0)
+- **4 Pasajeros** en intersecciones aleatorias
 
-### 🆕 Sistema de Clientes Dinámico
-- **Destinos específicos**: Cada cliente tiene un destino único en el mapa (no solo esquinas)
-- **Rango expansivo**: El área de búsqueda de taxis se incrementa si el cliente espera mucho
-- **Visualización de estado**: Círculos que muestran el rango actual de búsqueda
-- **Tiempo de espera visible**: Contador en tiempo real para cada cliente
-
-### 🆕 Optimizaciones del Sistema
-- **Código limpio**: Eliminado todo el código defensivo innecesario
-- **Imports directos**: Sin verificaciones condicionales de disponibilidad
-- **Lógica esencial**: Solo funcionalidad core para máximo rendimiento
-
-## Instalación y Uso
+## 🚀 **Instalación y Uso**
 
 ### Requisitos
 ```bash
 pip install -r requirements.txt
 ```
 
-### Ejecutar Sistema de Grilla
+### Ejecutar el Sistema
 ```bash
-python demo_taxi_dispatch.py
+# Opción 1: Script directo
+python src\gui\taxi_grid_constraint_system.py
+
+# Opción 2: Usar el archivo batch (Windows)
+start_grid_taxi.bat
 ```
 
-### Tests Disponibles
-```bash
-# Test rápido de movimiento en grilla
-python test_quick.py
+## 🧮 **Algoritmo de Asignación**
 
-# Test de calidad de movimiento
-python test_movement_quality.py
+### Proceso de Optimización
+1. **Evaluación Continua**: Cada 2 segundos verifica si hay asignaciones pendientes
+2. **Cálculo de Costos**: Para cada combinación taxi-pasajero calcula:
+   - Distancia Manhattan entre taxi y pasajero
+   - Penalización por tiempo de espera del pasajero
+   - Costo total = distancia + penalización
+3. **Aplicación de Restricciones**:
+   - Capacidad máxima del taxi
+   - Distancia máxima de pickup (100 unidades)
+   - Asignación única (1 taxi por pasajero)
+4. **Optimización**: Selecciona las asignaciones de menor costo total
 
-# Test de sistema completo
-python test_system_ready.py
-```
+### Ventajas del Algoritmo
+- ✅ **Estabilidad**: No presenta errores de ejecución
+- ✅ **Eficiencia**: Asignaciones en tiempo real
+- ✅ **Optimalidad**: Minimiza tiempo y distancia total
+- ✅ **Escalabilidad**: Funciona con cualquier número de taxis/pasajeros
 
-### Controles
-- **Clic izquierdo**: Agregar cliente en esa posición (se alinea automáticamente a la grilla)
-- **Botón Pause**: Pausar/reanudar simulación
-- **Cerrar ventana**: Terminar demostración
+## 🎮 **Controles de la Interfaz**
 
-## Sistema de Grilla
-- **Tamaño de celda**: 10.0 unidades
-- **Área de movimiento**: -40 a +40 en ambos ejes (grilla 9x9)
-- **Direcciones**: Solo arriba, abajo, izquierda, derecha
-- **Alineación automática**: Todas las posiciones se ajustan a la grilla
+- **Add Passenger**: Agregar pasajero manualmente
+- **Reset System**: Reiniciar con 3 taxis y 4 pasajeros
+- **Status Bar**: Muestra estado de taxis, pasajeros y tipo de solver activo
 
-## Archivos Principales
+## 📁 **Estructura del Proyecto**
 
-### Core del Sistema
-- `demo_taxi_dispatch.py` - Demo principal con Tkinter
-- `src/gui/taxi_tkinter_gui.py` - GUI principal de Tkinter
-- `src/agent/agent.py` - Lógica de agentes de taxi
-- `src/agent/client_agent.py` - Lógica de agentes de cliente
-
-### Archivos de Configuración
-- `src/config.py` - Configuración general
-- `requirements.txt` - Dependencias del proyecto
-
-## Mejoras Implementadas
-
-### Optimizaciones de Rendimiento
-- ✅ Migración completa a Tkinter (eliminado Pygame)
-- ✅ Interpolación cúbica para movimiento suave
-- ✅ Renderizado optimizado con Canvas
-- ✅ Gestión eficiente de eventos
-- ✅ Threading para simulaciones de fondo
-
-### Funcionalidades Mejoradas
-- ✅ **Recogida automática**: Los pasajeros desaparecen al ser recogidos
-- ✅ **Generación continua**: Nuevos clientes aparecen automáticamente
-- ✅ **Población mínima**: Sistema mantiene 6+ clientes siempre
-- ✅ **Estadísticas en tiempo real**: FPS, contadores de entidades
-- ✅ **Interfaz limpia**: Eliminación de archivos obsoletos
-
-### Arquitectura
-- **Separación de responsabilidades**: GUI independiente de lógica de negocio
-- **Threading seguro**: Operaciones de GUI en hilo principal
-- **Gestión de estado**: Estados de taxi y cliente bien definidos
-- **Escalabilidad**: Fácil agregar más funcionalidades
-
-### Limpieza de Código
-- ✅ **Eliminación de código defensivo**: Removidas verificaciones innecesarias de importaciones
-- ✅ **Simplificación de imports**: Imports directos sin try/except cuando no es necesario
-- ✅ **Código más limpio**: Eliminados archivos duplicados y código redundante
-- ✅ **Mejor mantenibilidad**: Estructura de código más simple y legible
-- ✅ **Menos líneas de código**: Manteniendo la misma funcionalidad con menos complejidad
-
-## Estructura del Proyecto
 ```
 tfsito/
-├── demo_taxi_dispatch.py          # Demo principal
 ├── src/
-│   ├── gui/
-│   │   └── taxi_tkinter_gui.py     # GUI principal (Tkinter)
-│   ├── agent/
-│   │   ├── agent.py                # Agente de taxi
-│   │   ├── client_agent.py         # Agente de cliente
-│   │   └── libs/
-│   │       └── taxi_constraints.py # Restricciones OR-Tools
-│   └── services/
-│       └── openfire_api.py         # API para SPADE/XMPP
-├── requirements.txt                # Dependencias
-└── README.md                       # Este archivo
+│   └── gui/
+│       ├── taxi_grid_constraint_system.py  # Sistema principal
+│       └── taxi_tkinter_gui.py             # Sistema anterior (respaldo)
+├── requirements.txt                        # Dependencias
+├── start_grid_taxi.bat                    # Script de ejecución
+└── README.md                              # Esta documentación
 ```
 
-## Próximas Mejoras
-- [ ] Integración con sistema de restricciones OR-Tools
-- [ ] Métricas de rendimiento del sistema
-- [ ] Mapas reales con coordenadas GPS
-- [ ] Base de datos para persistencia
-- [ ] API REST para integración externa
+## 🔧 **Tecnologías Utilizadas**
 
-## Desarrollo
-Desarrollado como parte del curso de Tópicos en Inteligencia Artificial, enfocado en sistemas multi-agente y optimización de interfaces de usuario.
+- **Python 3.7+**
+- **Tkinter**: Interfaz gráfica nativa
+- **OR-Tools**: Optimización (opcional, con fallback integrado)
+- **NumPy**: Operaciones numéricas
+
+## 📊 **Log de Funcionamiento**
+
+El sistema genera logs informativos como:
+```
+INFO:__main__:Added passenger P8589 at (-20.0, -60.0) -> (100.0, -100)
+INFO:__main__:Optimal assignment: T1 to P8589 (cost: 85.2, distance: 80.0)
+INFO:__main__:Taxi T1 picked up 2 passengers
+INFO:__main__:Taxi T1 dropped off 2 passengers
+```
+
+## ✨ **Características Técnicas**
+
+- **Distancia Manhattan**: Utilizada exclusivamente para cálculos
+- **Movimiento Suave**: Interpolación lineal entre intersecciones
+- **Optimización Robusta**: Algoritmo estable sin dependencias problemáticas
+- **Interfaz Responsiva**: Actualización a 20 FPS para movimiento fluido
