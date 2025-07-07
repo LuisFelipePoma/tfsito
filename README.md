@@ -1,33 +1,41 @@
-# Sistema de Despacho Inteligente de Taxis
+# Sistema de Despacho de Taxis con Movimiento en Grilla
 
 ## Descripción
-Sistema de despacho de taxis con visualización en tiempo real desarrollado con GUI Tkinter para máxima fluidez y simplicidad visual.
+Sistema de despacho de taxis con movimiento cuadriculado desarrollado con GUI Tkinter. Los taxis se mueven únicamente en **direcciones cardinales** (arriba, abajo, izquierda, derecha) sobre una grilla, simulando el movimiento en una ciudad real.
 
 ## Características Principales
 
-### 🚕 Simulación de Taxis Avanzada
-- **Movimiento libre (Free Roaming)**: Taxis se mueven autónomamente cuando no tienen asignación
-- **Interpolación fluida**: Animaciones suaves entre posiciones
-- **Estados dinámicos**: Disponible, ocupado, en movimiento, buscando pasajeros
-- **Capacidad configurable**: Diferentes capacidades de pasajeros (4-6)
+### 🏙️ Movimiento en Grilla Urbana
+- **Movimiento cardinal únicamente**: Taxis se mueven solo arriba, izquierda, abajo, derecha
+- **Sin movimiento diagonal**: Elimina la complejidad de movimiento libre
+- **Grilla visual**: La interfaz muestra la grilla de movimiento
+- **Posiciones alineadas**: Todos los elementos se alinean automáticamente a la grilla
+- **Simplicidad urbana**: Simula el movimiento real en bloques de ciudad
+
+### 🚕 Simulación de Taxis Simplificada
+- **Movimiento libre (Free Roaming)**: Taxis se mueven por la grilla cuando no tienen asignación
+- **Interpolación fluida**: Animaciones suaves entre posiciones de grilla
+- **Estados dinámicos**: Disponible, ocupado, en movimiento
+- **Capacidad configurable**: Diferentes capacidades de pasajeros
 - **Retorno automático**: Tras dejar pasajeros, vuelven al modo de búsqueda libre
 
-### 👥 Gestión de Clientes Inteligente
-- **Destinos personalizados**: Cada cliente elige un destino específico en el mapa
-- **Rango de búsqueda dinámico**: Aumenta gradualmente si ningún taxi los recoge
-- **Visualización de espera**: Muestra tiempo esperando y radio de búsqueda actual
+### 👥 Gestión de Clientes en Grilla
+- **Destinos en grilla**: Cada cliente elige un destino alineado a la grilla
+- **Posiciones de grilla**: Clientes aparecen en intersecciones de la grilla
+- **Visualización clara**: Destinos y rutas claramente marcados
 - **Prioridad por discapacidad**: Clientes con discapacidad tienen prioridad especial
 - **Generación automática**: Sistema mantiene población mínima de clientes
 
-### 🎯 Asignación Inteligente con OR-Tools
-- **Algoritmo de restricciones**: Usa OR-Tools CP-SAT para decisiones óptimas
-- **Rango expansivo**: Clientes expanden su radio de búsqueda con el tiempo
-- **Priorización automática**: Considera discapacidad, distancia y tiempo de espera
+### 🎯 Asignación Inteligente Simplificada
+- **Asignación por distancia**: Considera la distancia en la grilla
+- **Priorización automática**: Considera discapacidad y distancia
 - **Asignación en tiempo real**: Evaluación continua de mejores coincidencias
+- **Sistema simplificado**: Enfoque en la funcionalidad core
 
-### 🖥️ Interfaz Visual Avanzada
-- **Alto rendimiento**: ~60 FPS con animaciones fluidas
-- **Visualización completa**: Destinos de clientes, líneas de ruta, rangos de búsqueda
+### 🖥️ Interfaz Visual Optimizada
+- **Alto rendimiento**: ~60 FPS con animaciones fluidas sobre grilla
+- **Grilla visible**: Muestra claramente la estructura de movimiento
+- **Visualización clara**: Destinos, rutas y estados fáciles de entender
 - **Información en tiempo real**: Tiempo de espera, multiplicador de rango para cada cliente
 - **Interactividad**: Clic para agregar clientes manualmente
 - **Controles de simulación**: Botón pause/resume
@@ -59,15 +67,33 @@ Sistema de despacho de taxis con visualización en tiempo real desarrollado con 
 pip install -r requirements.txt
 ```
 
-### Ejecutar Demostración
+### Ejecutar Sistema de Grilla
 ```bash
 python demo_taxi_dispatch.py
 ```
 
+### Tests Disponibles
+```bash
+# Test rápido de movimiento en grilla
+python test_quick.py
+
+# Test de calidad de movimiento
+python test_movement_quality.py
+
+# Test de sistema completo
+python test_system_ready.py
+```
+
 ### Controles
-- **Clic izquierdo**: Agregar cliente en esa posición
+- **Clic izquierdo**: Agregar cliente en esa posición (se alinea automáticamente a la grilla)
 - **Botón Pause**: Pausar/reanudar simulación
 - **Cerrar ventana**: Terminar demostración
+
+## Sistema de Grilla
+- **Tamaño de celda**: 10.0 unidades
+- **Área de movimiento**: -40 a +40 en ambos ejes (grilla 9x9)
+- **Direcciones**: Solo arriba, abajo, izquierda, derecha
+- **Alineación automática**: Todas las posiciones se ajustan a la grilla
 
 ## Archivos Principales
 
