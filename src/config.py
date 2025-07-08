@@ -53,3 +53,37 @@ def load_config_from_env():
     config.grid_height = int(os.getenv("GRID_HEIGHT", str(config.grid_height)))
     
     return config
+
+@dataclass
+class TaxiSystemConfig:
+    """Configuración específica para el sistema de taxis"""
+    # Grid Configuration
+    taxi_grid_width: int = 20
+    taxi_grid_height: int = 20
+    
+    # System Parameters
+    num_taxis: int = 3
+    initial_passengers: int = 4
+    taxi_capacity: int = 4
+    
+    # Timing
+    assignment_interval: float = 2.0  # seconds
+    taxi_speed: float = 1.0  # cells per update
+    passenger_spawn_rate: float = 0.1  # probability per update
+    
+    # Constraints
+    max_pickup_distance: int = 15
+    wait_penalty_factor: float = 2.0
+    
+    # GUI Configuration
+    taxi_gui_width: int = 1000
+    taxi_gui_height: int = 700
+    taxi_cell_size: int = 25
+    taxi_fps: int = 20
+    
+    # Distributed System (inherits from main config)
+    use_distributed: bool = True
+    taxi_agent_prefix: str = "taxi_"
+
+# Global taxi configuration instance
+taxi_config = TaxiSystemConfig()

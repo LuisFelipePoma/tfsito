@@ -1,0 +1,18 @@
+# Requirements for Distributed Taxi Dispatch System
+# Core requirements (mandatory)
+# No additional packages required - uses Python standard library
+
+# Optional requirements for enhanced functionality
+ortools>=9.0.0         # For advanced constraint programming optimization
+spade>=3.2.0           # For distributed multi-agent communication
+aioxmpp>=0.11.0        # XMPP support for SPADE
+
+# Development and testing (optional)
+pytest>=6.0.0          # For testing
+pytest-asyncio>=0.18.0 # For async testing
+
+# Notes:
+# - System works without any additional packages (fallback modes)
+# - OR-Tools provides optimal assignment via constraint programming
+# - SPADE enables distributed communication between taxi system nodes
+# - tkinter is included with Python standard library for GUI
