@@ -1,6 +1,7 @@
 import requests
 import json
 import logging
+import base64
 from typing import Dict, List, Optional, Any
 from config import config
 
@@ -11,10 +12,16 @@ class OpenfireAPI:
     
     def __init__(self):
         self.base_url = f"http://{config.openfire_host}:{config.openfire_port}/plugins/restapi/v1"
+        
+        # Try Basic Authentication with admin credentials first
+        auth_string = f"{config.openfire_admin_user}:{config.openfire_admin_password}"
+        auth_bytes = auth_string.encode('ascii')
+        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
         self.headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Authorization": "VEPspy59RGyO3DOo"
+            "Authorization": f"Basic {auth_b64}"
         }
     
     def create_user(self, username: str, password: str, name: Optional[str] = None, email: Optional[str] = None) -> bool:
@@ -36,6 +43,9 @@ class OpenfireAPI:
             elif response.status_code == 409:
                 logger.info(f"User {username} already exists")
                 return True
+            elif response.status_code == 401:
+                logger.warning(f"Authentication failed for user creation {username} - continuing anyway (user may already exist)")
+                return True  # Continue execution even if we can't create users
             else:
                 logger.error(f"Failed to create user {username}: {response.status_code} - {response.text}")
                 return False

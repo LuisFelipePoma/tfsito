@@ -1,3 +1,32 @@
+
+# ==================== IMPORTS REQUERIDOS PARA LA GUI ====================
+import tkinter as tk
+from tkinter import ttk, messagebox
+import threading
+import time
+import asyncio
+import logging
+
+from config import config
+from taxi_dispatch_system import (
+    GridNetwork,
+    CoordinatorAgent,
+    TaxiAgent,
+    TaxiState,
+    PassengerState,
+    OR_TOOLS_AVAILABLE,
+    SPADE_AVAILABLE,
+    openfire_api
+)
+
+
+# ==================== LOGGER GLOBAL ====================
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 # ==================== CONTINUACIÓN: GUI Y SISTEMA PRINCIPAL ====================
 
 class GridTaxiGUI:
@@ -216,31 +245,45 @@ class GridTaxiGUI:
         
         # Dibujar taxis
         for taxi in self.coordinator.taxis.values():
-            x = taxi.position.x * cell_size + cell_size // 2
-            y = taxi.position.y * cell_size + cell_size // 2
-            
+            # Permitir dict o objeto
+            def get_attr(obj, attr):
+                if isinstance(obj, dict):
+                    return obj[attr]
+                return getattr(obj, attr)
+
+            pos = get_attr(taxi, 'position')
+            x = get_attr(pos, 'x') * cell_size + cell_size // 2
+            y = get_attr(pos, 'y') * cell_size + cell_size // 2
+
             # Color según estado
-            if taxi.state == TaxiState.IDLE:
+            state = get_attr(taxi, 'state')
+            if isinstance(state, str):
+                idle = state == 'IDLE'
+            else:
+                idle = state == TaxiState.IDLE
+            if idle:
                 color = "gold"
                 outline = "orange"
             else:
                 color = "orange"
                 outline = "darkorange"
-            
+
             # Taxi (diamante)
             self.canvas.create_polygon(x, y-8, x+8, y, x, y+8, x-8, y,
                                      fill=color, outline=outline, width=2,
                                      tags="entities")
-            
+
             # ID del taxi
-            self.canvas.create_text(x, y-18, text=taxi.taxi_id, 
+            taxi_id = get_attr(taxi, 'taxi_id')
+            self.canvas.create_text(x, y-18, text=taxi_id,
                                    font=("Arial", 8, "bold"), fill="black", tags="entities")
-            
+
             # Línea hacia objetivo si existe
-            if taxi.target_position:
-                target_x = taxi.target_position.x * cell_size + cell_size // 2
-                target_y = taxi.target_position.y * cell_size + cell_size // 2
-                self.canvas.create_line(x, y, target_x, target_y, 
+            target_pos = get_attr(taxi, 'target_position')
+            if target_pos:
+                target_x = get_attr(target_pos, 'x') * cell_size + cell_size // 2
+                target_y = get_attr(target_pos, 'y') * cell_size + cell_size // 2
+                self.canvas.create_line(x, y, target_x, target_y,
                                        fill=color, width=2, dash=(5, 5), tags="entities")
     
     def _start_system(self):
@@ -468,6 +511,12 @@ def main():
     except Exception as e:
         logger.error(f"Application error: {e}")
         print(f"❌ Error en aplicación: {e}")
+
+
+# Permite lanzar la GUI desde main.py
+def launch_taxi_gui():
+    gui = GridTaxiGUI()
+    gui.run()
 
 if __name__ == "__main__":
     main()

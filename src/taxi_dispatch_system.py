@@ -350,6 +350,21 @@ class ConstraintSolver:
 # ==================== TAXI AGENT ====================
 
 class TaxiAgent(Agent):
+    def _to_serializable_dict(self, obj):
+        """Convierte un dataclass a dict serializable por JSON, convirtiendo enums a string."""
+        if hasattr(obj, "__dataclass_fields__"):
+            result = {}
+            for k, v in obj.__dict__.items():
+                result[k] = self._to_serializable_dict(v)
+            return result
+        elif isinstance(obj, Enum):
+            return obj.name
+        elif isinstance(obj, list):
+            return [self._to_serializable_dict(i) for i in obj]
+        elif isinstance(obj, dict):
+            return {k: self._to_serializable_dict(v) for k, v in obj.items()}
+        else:
+            return obj
     """Agente taxi que se comunica vía SPADE/OpenFire"""
     
     def __init__(self, jid: str, password: str, taxi_id: str, 
@@ -392,17 +407,16 @@ class TaxiAgent(Agent):
     
     class MovementBehaviour(PeriodicBehaviour):
         """Maneja el movimiento del taxi"""
-        
         async def run(self):
             agent = self.agent
-            
             if agent.info.state == TaxiState.IDLE:
                 # Movimiento aleatorio de patrullaje
                 agent._patrol_movement()
-            
             elif agent.info.state in [TaxiState.PICKUP, TaxiState.DROPOFF]:
                 # Movimiento hacia objetivo
-                agent._move_towards_target()
+                arrived = agent._move_towards_target()
+                if arrived:
+                    await agent._handle_arrival()
     
     class CommunicationBehaviour(CyclicBehaviour):
         """Maneja comunicación XMPP"""
@@ -420,7 +434,9 @@ class TaxiAgent(Agent):
             msg = Message(to=coordinator_jid)
             msg.set_metadata("performative", "inform")
             msg.set_metadata("type", "status_report")
-            msg.body = json.dumps(asdict(self.agent.info))
+            # Usar función serializadora para enums
+            serializable_info = self.agent._to_serializable_dict(self.agent.info)
+            msg.body = json.dumps(serializable_info)
             await self.send(msg)
     
     def _patrol_movement(self):
@@ -439,21 +455,19 @@ class TaxiAgent(Agent):
     def _move_towards_target(self):
         """Movimiento hacia objetivo específico"""
         if not self.info.target_position:
-            return
-        
+            return False
         if not self.path or self.path_index >= len(self.path):
             # Calcular nuevo path hacia el objetivo
             self.path = self.grid.get_path(self.info.position, self.info.target_position)
             self.path_index = 0
-        
         # Mover al siguiente punto en el path
         if self.path_index < len(self.path) - 1:
             self.path_index += 1
             self.info.position = self.path[self.path_index]
-            
             # Verificar si llegamos al objetivo
             if self.info.position == self.info.target_position:
-                await self._handle_arrival()
+                return True
+        return False
     
     async def _handle_arrival(self):
         """Maneja llegada al objetivo"""

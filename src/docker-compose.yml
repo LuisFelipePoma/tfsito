@@ -1,7 +1,7 @@
 services:
   # Servidor XMPP Openfire
   openfire:
-    image: gizmotronic/openfire:4.6.4
+    image: sameersbn/openfire:3.10.3-19
     container_name: openfire
     ports:
       - "9090:9090"  # Admin console
@@ -9,7 +9,7 @@ services:
       - "7777:7777"  # File transfer proxy
     environment:
       - OPENFIRE_USER=admin
-      - OPENFIRE_PASSWORD=admin
+      - OPENFIRE_PASSWORD=1234
     networks:
       - agents-net
 

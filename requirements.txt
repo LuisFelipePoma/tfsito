@@ -2,17 +2,33 @@
 # Core requirements (mandatory)
 # No additional packages required - uses Python standard library
 
-# Optional requirements for enhanced functionality
-ortools>=9.0.0         # For advanced constraint programming optimization
-spade>=3.2.0           # For distributed multi-agent communication
-aioxmpp>=0.11.0        # XMPP support for SPADE
+# Essential packages (always required)
+requests>=2.25.0       # For OpenFire REST API integration
+ortools>=9.0.0         # For constraint programming optimization
+
+# Web monitoring interface
+flask>=2.0.0           # For web monitoring dashboard
+jinja2>=3.0.0          # Template engine for Flask
+
+# Optional packages (install separately if needed)
+# spade>=3.2.0         # For distributed multi-agent communication (requires complex setup)
+# aioxmpp>=0.11.0      # XMPP support for SPADE (requires libxml2/lxml)
+# numpy>=1.21.0        # For numerical operations (optional)
 
 # Development and testing (optional)
-pytest>=6.0.0          # For testing
-pytest-asyncio>=0.18.0 # For async testing
+# pytest>=6.0.0       # For testing
+# pytest-asyncio>=0.18.0 # For async testing
 
 # Notes:
-# - System works without any additional packages (fallback modes)
+# - System works without SPADE (fallback to local mode)
 # - OR-Tools provides optimal assignment via constraint programming
-# - SPADE enables distributed communication between taxi system nodes
+# - SPADE requires complex C++ dependencies on Windows
+# - For distributed deployment, install SPADE separately or use Docker
 # - tkinter is included with Python standard library for GUI
+# - Flask provides web monitoring interface for distributed system
+
+# Windows-specific note:
+# To install SPADE on Windows, you may need:
+# 1. Visual Studio Build Tools
+# 2. Anaconda environment: conda install spade-platform
+# 3. Or use Docker: docker run -v $(pwd):/app python:3.9 pip install spade

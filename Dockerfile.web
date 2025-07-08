@@ -1,0 +1,16 @@
+# Dockerfile para monitor web
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Instalar Flask
+RUN pip install flask requests
+
+# Copiar monitor web
+COPY src/web_monitor.py .
+
+# Exponer puerto
+EXPOSE 8080
+
+# Ejecutar monitor
+CMD ["python", "web_monitor.py"]
