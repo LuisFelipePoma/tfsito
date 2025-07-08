@@ -311,12 +311,34 @@ class GridTaxiGUI:
         logger.info("System stopped")
     
     def _add_passenger(self):
-        """Agrega un nuevo pasajero"""
-        if self.coordinator:
-            self.coordinator._create_new_passenger()
-            self.status_text.set("Nuevo pasajero agregado")
-        else:
+        """Agrega un nuevo pasajero con opciones de discapacidad y precio"""
+        if not self.coordinator:
             messagebox.showwarning("Sistema", "Inicie el sistema primero")
+            return
+        # Diálogo para datos del pasajero
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Agregar Pasajero")
+        dialog.geometry("300x200")
+        tk.Label(dialog, text="¿Es discapacitado?", font=("Arial", 10)).pack(pady=5)
+        is_disabled_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(dialog, text="Sí", variable=is_disabled_var).pack()
+        tk.Label(dialog, text="Precio ofrecido (S/)", font=("Arial", 10)).pack(pady=5)
+        price_var = tk.DoubleVar(value=10.0)
+        price_entry = tk.Entry(dialog, textvariable=price_var)
+        price_entry.pack()
+        def submit():
+            is_disabled = is_disabled_var.get()
+            try:
+                price = float(price_var.get())
+            except Exception:
+                price = 10.0
+            dialog.destroy()
+            self.coordinator._create_new_passenger(is_disabled=is_disabled, price=price)
+            self.status_text.set("Nuevo pasajero agregado")
+        tk.Button(dialog, text="Agregar", command=submit).pack(pady=10)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        self.root.wait_window(dialog)
     
     def _reset_system(self):
         """Reinicia el sistema"""
@@ -486,6 +508,18 @@ class GridTaxiGUI:
         finally:
             self._stop_system()
 
+# ==================== FUNCIÓN LAUNCHER ====================
+
+def launch_taxi_gui():
+    """Lanza la interfaz gráfica del sistema de taxis"""
+    try:
+        app = GridTaxiGUI()
+        app.run()
+    except Exception as e:
+        print(f"Error al lanzar GUI: {e}")
+        import traceback
+        traceback.print_exc()
+
 # ==================== SCRIPT PRINCIPAL ====================
 
 def main():
@@ -505,18 +539,11 @@ def main():
     
     try:
         # Crear y ejecutar GUI
-        gui = GridTaxiGUI()
-        gui.run()
+        launch_taxi_gui()
         
     except Exception as e:
         logger.error(f"Application error: {e}")
         print(f"❌ Error en aplicación: {e}")
-
-
-# Permite lanzar la GUI desde main.py
-def launch_taxi_gui():
-    gui = GridTaxiGUI()
-    gui.run()
 
 if __name__ == "__main__":
     main()

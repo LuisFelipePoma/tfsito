@@ -1,34 +1,15 @@
-# Requirements for Distributed Taxi Dispatch System
-# Core requirements (mandatory)
-# No additional packages required - uses Python standard library
+# Sistema de Taxis con Constraint Programming - Dependencias Esenciales
 
-# Essential packages (always required)
-requests>=2.25.0       # For OpenFire REST API integration
-ortools>=9.0.0         # For constraint programming optimization
+# Dependencias Core
+requests>=2.25.0       # API REST de OpenFire
+ortools>=9.0.0        # Constraint Programming (OR-Tools)
+spade>=3.2.0          # Sistema Multi-Agente SPADE/XMPP
 
-# Web monitoring interface
-flask>=2.0.0           # For web monitoring dashboard
-jinja2>=3.0.0          # Template engine for Flask
+# Dependencias Opcionales para Análisis
+numpy>=1.21.0         # Operaciones numéricas (opcional)
 
-# Optional packages (install separately if needed)
-# spade>=3.2.0         # For distributed multi-agent communication (requires complex setup)
-# aioxmpp>=0.11.0      # XMPP support for SPADE (requires libxml2/lxml)
-# numpy>=1.21.0        # For numerical operations (optional)
-
-# Development and testing (optional)
-# pytest>=6.0.0       # For testing
-# pytest-asyncio>=0.18.0 # For async testing
-
-# Notes:
-# - System works without SPADE (fallback to local mode)
-# - OR-Tools provides optimal assignment via constraint programming
-# - SPADE requires complex C++ dependencies on Windows
-# - For distributed deployment, install SPADE separately or use Docker
-# - tkinter is included with Python standard library for GUI
-# - Flask provides web monitoring interface for distributed system
-
-# Windows-specific note:
-# To install SPADE on Windows, you may need:
-# 1. Visual Studio Build Tools
-# 2. Anaconda environment: conda install spade-platform
-# 3. Or use Docker: docker run -v $(pwd):/app python:3.9 pip install spade
+# Notas de Instalación:
+# - tkinter incluido con Python estándar para GUI
+# - En Windows, SPADE puede requerir Visual Studio Build Tools
+# - Para instalación alternativa: conda install spade-platform
+# - O usar Docker para evitar problemas de dependencias
