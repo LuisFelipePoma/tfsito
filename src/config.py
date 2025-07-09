@@ -5,12 +5,15 @@ from dataclasses import dataclass
 class TaxiSystemConfig:
     """Configuración del Sistema de Taxis con Constraint Programming"""
     
+    #APP
+    host_name: str = "host"
+    
     # OpenFire/XMPP Configuration
     openfire_host: str = "localhost"
     openfire_port: int = 9090
     openfire_admin_user: str = "admin"
     openfire_admin_password: str = "123"
-    openfire_domain: str = "localhost"
+    openfire_domain: str = "192.168.18.19"
     openfire_xmpp_port: int = 5222
     
     # Grid Configuration
@@ -47,6 +50,7 @@ def load_config_from_env():
     config.openfire_admin_password = os.getenv("OPENFIRE_ADMIN_PASSWORD", config.openfire_admin_password)
     config.openfire_domain = os.getenv("OPENFIRE_DOMAIN", config.openfire_domain)
     
+    config.host_name = os.getenv("HOST_NAME", config.openfire_domain)
     config.grid_width = int(os.getenv("GRID_WIDTH", str(config.grid_width)))
     config.grid_height = int(os.getenv("GRID_HEIGHT", str(config.grid_height)))
     config.num_taxis = int(os.getenv("NUM_TAXIS", str(config.num_taxis)))
