@@ -148,8 +148,8 @@ class TaxiAgent(Agent):
         ):
             """Notifica eventos al coordinador desde el comportamiento"""
             agent: 'TaxiAgent' = self.agent  # type: ignore
-            coordinator_jid = f"coordinator@{config.openfire_domain}"
-            msg = Message(to=coordinator_jid)
+            # coordinator_jid = f"coordinator@{config.openfire_domain}"
+            msg = Message(to=COORDINATOR_JID)
             msg.set_metadata("performative", "inform")
             msg.set_metadata("type", event_type)
 

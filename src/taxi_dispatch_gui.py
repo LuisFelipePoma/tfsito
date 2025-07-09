@@ -1,19 +1,31 @@
 # ==================== IMPORTS REQUERIDOS PARA LA GUI ====================
+from dataclasses import dataclass
 import tkinter as tk
 from tkinter import ttk, messagebox
 import threading
 import time
 import asyncio
+
 from src.agent.taxi import TaxiAgent
 from src.agent.coordinator import CoordinatorAgent
 from src.config import config
 from src.services.openfire_api import openfire_api
 from src.agent.libs.environment import (
     GridNetwork,
+    GridPosition,
     TaxiState,
     PassengerState,
 )
 from src.utils.logger import logger
+
+
+@dataclass
+class TaxiPos():
+    """Clase para representar la posición de un taxi en la grilla"""
+    taxi_id: str
+    position: GridPosition
+
+    
 
 # ==================== GUI Y SISTEMA PRINCIPAL ====================
 class GridTaxiGUI:
@@ -22,7 +34,6 @@ class GridTaxiGUI:
     def __init__(self):
         self.grid = GridNetwork(config.grid_width, config.grid_height)
         self.coordinator = None
-        self.taxis = {}
         self.running = False
 
         # GUI setup
@@ -416,7 +427,7 @@ class GridTaxiGUI:
             except Exception:
                 price = 10.0
             dialog.destroy()
-            self.coordinator._create_new_passenger(is_disabled=is_disabled, price=price)
+            # self.coordinator._create_new_passenger(is_disabled=is_disabled, price=price)
             self.status_text.set("Nuevo pasajero agregado")
 
         tk.Button(dialog, text="Agregar", command=submit).pack(pady=10)
@@ -458,17 +469,20 @@ class GridTaxiGUI:
                 self.status_text.set("Error: OpenFire no disponible")
                 return
 
-            # Crear usuarios XMPP
-            await self._setup_xmpp_users()
-
             # Crear coordinador
+            try:
+                # Crear usuario coordinador
+                openfire_api.create_user(
+                    "coordinator", "coordinator_pass", "Coordinator Agent"
+                )
+
+                logger.info("XMPP users created")
+            except Exception as e:
+                logger.warning(f"XMPP user creation error (might exist): {e}")
             self.coordinator = CoordinatorAgent(
                 f"coordinator@{config.openfire_domain}", "coordinator_pass", self.grid
             )
             await self.coordinator.start(auto_register=True)
-
-            # Crear taxis
-            # await self._create_taxis()
 
             self.status_text.set("Sistema activo - Agentes conectados")
 
@@ -493,7 +507,6 @@ class GridTaxiGUI:
             self.status_text.set(f"Error: {e}")
         finally:
             # Cleanup
-            await self._cleanup_agents()
             self.running = False
 
     def _check_openfire(self) -> bool:
@@ -507,52 +520,6 @@ class GridTaxiGUI:
             return response.status_code == 200
         except:
             return False
-
-    async def _setup_xmpp_users(self):
-        """Configura usuarios XMPP"""
-        try:
-            # Crear usuario coordinador
-            openfire_api.create_user(
-                "coordinator", "coordinator_pass", "Coordinator Agent"
-            )
-
-            # Crear usuarios para taxis
-            # for i in range(3):
-            #     taxi_id = f"taxi_{i}"
-            #     openfire_api.create_user(taxi_id, f"{taxi_id}_pass", f"Taxi Agent {i}")
-
-            logger.info("XMPP users created")
-        except Exception as e:
-            logger.warning(f"XMPP user creation error (might exist): {e}")
-
-    async def _create_taxis(self):
-        """Crea agentes taxi"""
-        for i in range(3):
-            taxi_id = f"taxi_{i}"
-            taxi_jid = f"{taxi_id}@{config.openfire_domain}"
-
-            initial_pos = self.grid.get_random_intersection()
-            taxi_agent = TaxiAgent(
-                taxi_jid, f"{taxi_id}_pass", taxi_id, initial_pos, self.grid
-            )
-
-            await taxi_agent.start()
-            self.taxis[taxi_id] = taxi_agent
-
-            logger.info(f"Created taxi agent {taxi_id}")
-
-    async def _cleanup_agents(self):
-        """Limpia agentes al cerrar"""
-        try:
-            for taxi in self.taxis.values():
-                await taxi.stop()
-
-            if self.coordinator:
-                await self.coordinator.stop()
-
-            logger.info("Agents cleaned up")
-        except Exception as e:
-            logger.error(f"Cleanup error: {e}")
 
     def _update_stats(self):
         """Actualiza estadísticas de la GUI"""

@@ -99,6 +99,16 @@ class OpenfireAPI:
         except Exception as e:
             logger.error(f"Exception listing users: {e}")
             return []
+        
+    def get_taxis_jid(self)-> List[str]:
+        online_users = self.get_online_users()
+
+        """Get list of taxis JIDs"""
+        taxis_jid = []
+        for user in online_users:
+            if user.__contains__("taxi_"):
+                taxis_jid.append(f"{user}@{config.openfire_container}")        
+        return taxis_jid
 
     def get_online_users(self) -> List[str]:
         """Get list of currently online users"""

@@ -1,10 +1,10 @@
+import asyncio
 import json
 import random
 from typing import Dict
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, PeriodicBehaviour
 from spade.message import Message
-from spade.template import Template
 from src.agent.libs.contraint import ConstraintSolver
 from src.agent.libs.environment import (
     GridNetwork,
@@ -37,17 +37,19 @@ class CoordinatorAgent(Agent):
         logger.info("Setting up coordinator agent")
 
         # Comportamiento de asignación - más frecuente para respuesta rápida
-        # assignment_behaviour = self.AssignmentBehaviour(
-        #     period=config.assignment_interval
-        # )
-        # self.add_behaviour(assignment_behaviour)
+        assignment_behaviour = self.AssignmentBehaviour(
+            period=config.assignment_interval
+        )
+        self.add_behaviour(assignment_behaviour)
 
         # Comportamiento de comunicación
         comm_behaviour = self.CommunicationBehaviour()
         self.add_behaviour(comm_behaviour)
+        
+        # Comportamiento de logica de pasajeros
+        passengers_behaviour = self.PassengersBehaviour()
+        self.add_behaviour(passengers_behaviour)
 
-        # Generar pasajeros iniciales
-        # self._generate_initial_passengers()
 
     class AssignmentBehaviour(PeriodicBehaviour):
         """Maneja las asignaciones usando constraint programming"""
@@ -118,7 +120,6 @@ class CoordinatorAgent(Agent):
             msg = await self.receive(timeout=1)
             if msg:
                 performative = msg.get_metadata("performative")
-                logger.info(f"Coordinator received message: {performative}")
                 if performative == "inform":
                     await self._handle_message(msg)
                 elif performative == "request":
@@ -233,96 +234,103 @@ class CoordinatorAgent(Agent):
                         del self.agent.passengers[passenger_id]
                         logger.info(f"Passenger {passenger_id} delivered successfully")
                     # Crear nuevo pasajero
-                    self.agent._create_new_passenger()
+                    # self.agent._create_new_passenger()
 
             except Exception as e:
                 logger.error(f"Error handling message in coordinator: {e}")
                 logger.error(f"Message body: {msg.body}")
                 logger.error(f"Message metadata: {msg.metadata}")
 
-    def _generate_initial_passengers(self):
-        """Genera 4 pasajeros iniciales"""
-        for i in range(4):
-            self._create_new_passenger()
 
-    def _create_new_passenger(
-        self,
-        is_disabled=False,
-        is_elderly=False,
-        is_child=False,
-        is_pregnant=False,
-        price=10.0,
-    ):
-        """Crea un nuevo pasajero con opciones de discapacidad y precio"""
-        passenger_id = f"P{self.passenger_counter}"
-        self.passenger_counter += 1
+    class PassengersBehaviour(CyclicBehaviour):
+        async def run(self):
+            while True:
+                self._generate_initial_passengers()
+                await asyncio.sleep(15)
 
-        # Generar posiciones aleatorias con distancia mínima
-        pickup = self.grid.get_random_intersection()
-        dropoff = self.grid.get_random_intersection()
+        def _generate_initial_passengers(self):
+            """Genera 4 pasajeros iniciales"""
+            for i in range(4):
+                self._create_new_passenger()
 
-        # Asegurar distancia mínima entre pickup y dropoff
-        max_attempts = 10
-        attempts = 0
-        while pickup.manhattan_distance(dropoff) < 5 and attempts < max_attempts:
-            dropoff = self.grid.get_random_intersection()
-            attempts += 1
+        def _create_new_passenger(
+            self,
+            is_disabled=False,
+            is_elderly=False,
+            is_child=False,
+            is_pregnant=False,
+            price=10.0,
+        ):
+            """Crea un nuevo pasajero con opciones de discapacidad y precio"""
+            passenger_id = f"P{self.agent.passenger_counter}"
+            self.agent.passenger_counter += 1
 
-        # Determinar prioridades y precio aleatorio
-        if not any([is_disabled, is_elderly, is_child, is_pregnant]):
-            # Asignar aleatoriamente algunas prioridades
+            # Generar posiciones aleatorias con distancia mínima
+            pickup = self.agent.grid.get_random_intersection()
+            dropoff = self.agent.grid.get_random_intersection()
 
-            if random.random() < 0.1:  # 10% discapacitado
-                is_disabled = True
-            elif random.random() < 0.15:  # 15% adulto mayor
-                is_elderly = True
-            elif random.random() < 0.1:  # 10% niño
-                is_child = True
-            elif random.random() < 0.1:  # 10% embarazada
-                is_pregnant = True
+            # Asegurar distancia mínima entre pickup y dropoff
+            max_attempts = 10
+            attempts = 0
+            while pickup.manhattan_distance(dropoff) < 5 and attempts < max_attempts:
+                dropoff = self.agent.grid.get_random_intersection()
+                attempts += 1
 
-        # Precio aleatorio con variación
-        if price == 10.0:
-            price = random.uniform(8.0, 25.0)
+            # Determinar prioridades y precio aleatorio
+            if not any([is_disabled, is_elderly, is_child, is_pregnant]):
+                # Asignar aleatoriamente algunas prioridades
 
-        passenger = PassengerInfo(
-            passenger_id=passenger_id,
-            pickup_position=pickup,
-            dropoff_position=dropoff,
-            state=PassengerState.WAITING,
-            wait_time=0.0,
-            is_disabled=is_disabled,
-            is_elderly=is_elderly,
-            is_child=is_child,
-            is_pregnant=is_pregnant,
-            price=price,
-        )
+                if random.random() < 0.1:  # 10% discapacitado
+                    is_disabled = True
+                elif random.random() < 0.15:  # 15% adulto mayor
+                    is_elderly = True
+                elif random.random() < 0.1:  # 10% niño
+                    is_child = True
+                elif random.random() < 0.1:  # 10% embarazada
+                    is_pregnant = True
 
-        self.passengers[passenger_id] = passenger
+            # Precio aleatorio con variación
+            if price == 10.0:
+                price = random.uniform(8.0, 25.0)
 
-        # Log detallado
-        priorities = []
-        if is_disabled:
-            priorities.append("DISABLED")
-        if is_elderly:
-            priorities.append("ELDERLY")
-        if is_child:
-            priorities.append("CHILD")
-        if is_pregnant:
-            priorities.append("PREGNANT")
+            passenger = PassengerInfo(
+                passenger_id=passenger_id,
+                pickup_position=pickup,
+                dropoff_position=dropoff,
+                state=PassengerState.WAITING,
+                wait_time=0.0,
+                is_disabled=is_disabled,
+                is_elderly=is_elderly,
+                is_child=is_child,
+                is_pregnant=is_pregnant,
+                price=price,
+            )
 
-        priority_str = f" [{', '.join(priorities)}]" if priorities else ""
-        logger.info(
-            f"Created passenger {passenger_id}{priority_str} at ({pickup.x}, {pickup.y}) -> ({dropoff.x}, {dropoff.y}), price: S/{price:.2f}"
-        )
+            self.agent.passengers[passenger_id] = passenger
 
-        return passenger
+            # Log detallado
+            priorities = []
+            if is_disabled:
+                priorities.append("DISABLED")
+            if is_elderly:
+                priorities.append("ELDERLY")
+            if is_child:
+                priorities.append("CHILD")
+            if is_pregnant:
+                priorities.append("PREGNANT")
 
-    def update_passenger_wait_times(self, dt: float):
-        """Actualiza tiempos de espera de pasajeros"""
-        for passenger in self.passengers.values():
-            if passenger.state == PassengerState.WAITING:
-                passenger.wait_time += dt
+            priority_str = f" [{', '.join(priorities)}]" if priorities else ""
+            logger.info(
+                f"Created passenger {passenger_id}{priority_str} at ({pickup.x}, {pickup.y}) -> ({dropoff.x}, {dropoff.y}), price: S/{price:.2f}"
+            )
+
+            return passenger
+
+        def update_passenger_wait_times(self, dt: float):
+            """Actualiza tiempos de espera de pasajeros"""
+            for passenger in self.agent.passengers.values():
+                if passenger.state == PassengerState.WAITING:
+                    passenger.wait_time += dt
 
 
 ## LAUNCHER
