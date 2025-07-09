@@ -1,22 +1,8 @@
-"""
-Sistema Completo de Despacho de Taxis con Constraint Programming
-==============================================================
-
-Sistema distribuido que utiliza:
-- OR-Tools para asignación óptima
-- OpenFire/XMPP para comunicación entre agentes
-- Mapa de grilla con movimiento Manhattan
-- Interfaz gráfica con Tkinter
-
-Autor: Sistema de Taxis Inteligente
-Fecha: 2025
-"""
 import logging
 import random
 from dataclasses import dataclass
 from typing import List, Optional, Set
 from enum import Enum
-
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -82,8 +68,6 @@ class PassengerInfo:
     price: float = 10.0        # Precio ofrecido
 
 # ==================== GRID NETWORK ====================
-
-
 class GridNetwork:
     """Red de grilla para movimiento de taxis y pasajeros"""
     
@@ -94,7 +78,6 @@ class GridNetwork:
         self._generate_intersections()
         
         logger.info(f"Grid network created: {width}x{height} with {len(self.intersections)} intersections")
-    
     
     def load_from_dict(self, data: dict):
         self.width = data.get("width", 20)

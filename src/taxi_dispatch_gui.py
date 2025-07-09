@@ -6,8 +6,7 @@ import threading
 import time
 import asyncio
 
-from src.agent.taxi import TaxiAgent
-from src.agent.coordinator import CoordinatorAgent
+from src.utils.logger import logger
 from src.config import config
 from src.services.openfire_api import openfire_api
 from src.agent.libs.environment import (
@@ -16,16 +15,14 @@ from src.agent.libs.environment import (
     TaxiState,
     PassengerState,
 )
-from src.utils.logger import logger
 
-
+# ==================== ESTRUCTURAS DE DATOS ====================
 @dataclass
 class TaxiPos():
     """Clase para representar la posición de un taxi en la grilla"""
+    
     taxi_id: str
     position: GridPosition
-
-    
 
 # ==================== GUI Y SISTEMA PRINCIPAL ====================
 class GridTaxiGUI:
@@ -55,6 +52,7 @@ class GridTaxiGUI:
 
     def _setup_gui(self):
         """Configura la interfaz gráfica"""
+        
         # Frame principal
         main_frame = ttk.Frame(self.root)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -479,6 +477,8 @@ class GridTaxiGUI:
                 logger.info("XMPP users created")
             except Exception as e:
                 logger.warning(f"XMPP user creation error (might exist): {e}")
+                
+            from src.agent.coordinator import CoordinatorAgent
             self.coordinator = CoordinatorAgent(
                 f"coordinator@{config.openfire_domain}", "coordinator_pass", self.grid
             )

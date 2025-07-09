@@ -4,7 +4,6 @@ from src.agent.libs.environment import GridPosition, PassengerInfo, PassengerSta
 from src.config import config
 from src.utils.logger import logger
 
-
 class ConstraintSolver:
     """Solver de constraint programming para asignación óptima"""
 

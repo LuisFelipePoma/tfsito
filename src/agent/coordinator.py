@@ -1,11 +1,12 @@
 import asyncio
 import json
 import random
+import traceback
 from typing import Dict
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, PeriodicBehaviour
 from spade.message import Message
-from src.agent.libs.contraint import ConstraintSolver
+from src.agent.libs.constraint import ConstraintSolver
 from src.agent.libs.environment import (
     GridNetwork,
     GridPosition,
@@ -14,9 +15,9 @@ from src.agent.libs.environment import (
     TaxiInfo,
     TaxiState,
 )
+from src.taxi_dispatch_gui import launch_taxi_gui
 from src.utils.logger import logger
 from src.config import config
-
 
 # ==================== COORDINATOR AGENT ====================
 class CoordinatorAgent(Agent):
@@ -34,12 +35,11 @@ class CoordinatorAgent(Agent):
 
     async def setup(self):
         """Configuración inicial del coordinador"""
+        
         logger.info("Setting up coordinator agent")
 
         # Comportamiento de asignación - más frecuente para respuesta rápida
-        assignment_behaviour = self.AssignmentBehaviour(
-            period=config.assignment_interval
-        )
+        assignment_behaviour = self.AssignmentBehaviour(period=config.assignment_interval)
         self.add_behaviour(assignment_behaviour)
 
         # Comportamiento de comunicación
@@ -80,6 +80,7 @@ class CoordinatorAgent(Agent):
 
         async def _send_assignment_message(self, taxi_id: str, passenger_id: str):
             """Envía mensaje de asignación a un taxi (desde el comportamiento)"""
+            
             coordinator = self.agent
 
             if passenger_id not in coordinator.passengers:
@@ -109,9 +110,7 @@ class CoordinatorAgent(Agent):
             # Marcar asignación pendiente
             passenger.assigned_taxi_id = taxi_id
 
-            logger.info(
-                f"Sent assignment: {taxi_id} -> {passenger_id} at ({passenger.pickup_position.x}, {passenger.pickup_position.y}) -> ({passenger.dropoff_position.x}, {passenger.dropoff_position.y})"
-            )
+            logger.info(f"Sent assignment: {taxi_id} -> {passenger_id} at ({passenger.pickup_position.x}, {passenger.pickup_position.y}) -> ({passenger.dropoff_position.x}, {passenger.dropoff_position.y})")
 
     class CommunicationBehaviour(CyclicBehaviour):
         """Maneja comunicación con taxis"""
@@ -127,6 +126,7 @@ class CoordinatorAgent(Agent):
 
         async def _handle_request(self, msg: Message):
             """Maneja mensajes de request"""
+            
             if not msg:
                 return
             try:
@@ -158,6 +158,7 @@ class CoordinatorAgent(Agent):
             
         async def _handle_message(self, msg: Message):
             """Maneja mensajes de taxis"""
+            
             if not msg or not msg.body:
                 logger.warning("Coordinator received empty message")
                 return
@@ -172,18 +173,14 @@ class CoordinatorAgent(Agent):
                     # Convertir datos JSON a objetos apropiados
                     position_data = data.get("position", {})
                     if isinstance(position_data, dict):
-                        position = GridPosition(
-                            position_data.get("x", 0), position_data.get("y", 0)
-                        )
+                        position = GridPosition(position_data.get("x", 0), position_data.get("y", 0))
                     else:
                         position = GridPosition(0, 0)
 
                     target_position = None
                     target_data = data.get("target_position")
                     if target_data and isinstance(target_data, dict):
-                        target_position = GridPosition(
-                            target_data.get("x", 0), target_data.get("y", 0)
-                        )
+                        target_position = GridPosition(target_data.get("x", 0), target_data.get("y", 0))
 
                     # Convertir estado de string a enum
                     state_str = data.get("state", "IDLE")
@@ -218,9 +215,7 @@ class CoordinatorAgent(Agent):
                                 and p.state == PassengerState.WAITING
                             ):
                                 p.state = PassengerState.PICKED_UP
-                                logger.info(
-                                    f"Passenger {p.passenger_id} picked up by taxi {taxi_id}"
-                                )
+                                logger.info(f"Passenger {p.passenger_id} picked up by taxi {taxi_id}")
                                 break
 
                 elif msg_type == "passenger_delivered":
@@ -233,8 +228,6 @@ class CoordinatorAgent(Agent):
                         )
                         del self.agent.passengers[passenger_id]
                         logger.info(f"Passenger {passenger_id} delivered successfully")
-                    # Crear nuevo pasajero
-                    # self.agent._create_new_passenger()
 
             except Exception as e:
                 logger.error(f"Error handling message in coordinator: {e}")
@@ -279,7 +272,6 @@ class CoordinatorAgent(Agent):
             # Determinar prioridades y precio aleatorio
             if not any([is_disabled, is_elderly, is_child, is_pregnant]):
                 # Asignar aleatoriamente algunas prioridades
-
                 if random.random() < 0.1:  # 10% discapacitado
                     is_disabled = True
                 elif random.random() < 0.15:  # 15% adulto mayor
@@ -320,9 +312,7 @@ class CoordinatorAgent(Agent):
                 priorities.append("PREGNANT")
 
             priority_str = f" [{', '.join(priorities)}]" if priorities else ""
-            logger.info(
-                f"Created passenger {passenger_id}{priority_str} at ({pickup.x}, {pickup.y}) -> ({dropoff.x}, {dropoff.y}), price: S/{price:.2f}"
-            )
+            logger.info(f"Created passenger {passenger_id}{priority_str} at ({pickup.x}, {pickup.y}) -> ({dropoff.x}, {dropoff.y}), price: S/{price:.2f}")
 
             return passenger
 
@@ -336,15 +326,13 @@ class CoordinatorAgent(Agent):
 ## LAUNCHER
 def launch_agent_coordinator():
     """Función principal del sistema"""
+    
     print("🚕 Sistema de Taxis con Constraint Programming")
     print("=" * 50)
 
     try:
-        from src.taxi_dispatch_gui import launch_taxi_gui
-
         print("✅ Módulos cargados correctamente")
         print("🔥 Iniciando sistema...")
-
         # Lanzar la interfaz gráfica
         launch_taxi_gui()
 
@@ -352,8 +340,6 @@ def launch_agent_coordinator():
         print("\n🛑 Sistema interrumpido por el usuario")
     except Exception as e:
         print(f"\n❌ Error al iniciar el sistema: {e}")
-        import traceback
-
         traceback.print_exc()
         return 1
 

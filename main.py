@@ -1,15 +1,15 @@
 import argparse
 import sys
+import spade
 from src.config import config
 from src.utils.logger import logger
-import spade
 from src.agent.coordinator import launch_agent_coordinator
 from src.agent.taxi import launch_agent_taxi
 
-
 def main():
     """Main entry point"""
-    parser = argparse.ArgumentParser(description="Ideological Multi-Agent System")
+    
+    parser = argparse.ArgumentParser(description="Taxi Multi-Agent System")
     parser.add_argument("--host", type=str, required=True, help="Hostname identifier")
     parser.add_argument(
         "--agent-count",
@@ -38,7 +38,6 @@ def main():
 
     try:
         if args.agent_type == "taxi":
-            print("PEPE")
             result = spade.run(launch_agent_taxi(args.agent_count))
             sys.exit(result)
         else:
@@ -48,7 +47,6 @@ def main():
     except Exception as e:
         logger.error(f"Fatal error: {e}")
         sys.exit(1)
-
 
 if __name__ == "__main__":
     sys.exit(main())

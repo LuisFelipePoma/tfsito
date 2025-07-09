@@ -3,41 +3,22 @@ import json
 import time
 from typing import Dict, List, Optional
 import uuid
+import asyncio
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, PeriodicBehaviour
 from spade.message import Message
-from spade.template import Template
 from src.agent.libs.environment import GridPosition, TaxiState, GridNetwork, TaxiInfo
+from src.agent.index import cleanup_agent
 from src.utils.logger import logger
 from src.config import config
-from src.agent.index import cleanup_agent
-import asyncio
 from src.services.openfire_api import openfire_api
-from src.config import config
 
 COORDINATOR_JID = f"coordinator@{config.openfire_container}"
 
 # ==================== TAXI AGENT ====================
 class TaxiAgent(Agent):
-    def _to_serializable_dict(self, obj):
-        """Convierte un dataclass a dict serializable por JSON, convirtiendo enums a string."""
-        if hasattr(obj, "__dataclass_fields__"):
-            result = {}
-            for k, v in obj.__dict__.items():
-                result[k] = self._to_serializable_dict(v)
-            return result
-        elif isinstance(obj, Enum):
-            return obj.name
-        elif isinstance(obj, list):
-            return [self._to_serializable_dict(i) for i in obj]
-        elif isinstance(obj, dict):
-            return {k: self._to_serializable_dict(v) for k, v in obj.items()}
-        else:
-            return obj
-
     """Agente taxi que se comunica vía SPADE/OpenFire"""
 
-  
     def __init__(
         self,
         jid: str,
@@ -57,14 +38,30 @@ class TaxiAgent(Agent):
 
         logger.info(f"Taxi agent {taxi_id} created")
 
+    def _to_serializable_dict(self, obj):
+        """Convierte un dataclass a dict serializable por JSON, convirtiendo enums a string."""
+        
+        if hasattr(obj, "__dataclass_fields__"):
+            result = {}
+            for k, v in obj.__dict__.items():
+                result[k] = self._to_serializable_dict(v)
+            return result
+        elif isinstance(obj, Enum):
+            return obj.name
+        elif isinstance(obj, list):
+            return [self._to_serializable_dict(i) for i in obj]
+        elif isinstance(obj, dict):
+            return {k: self._to_serializable_dict(v) for k, v in obj.items()}
+        else:
+            return obj
+        
     async def setup(self):
         """Configuración inicial del agente"""
+        
         logger.info(f"Setting up taxi agent {self.taxi_id}")
 
         # Comportamiento de movimiento - más frecuente para respuesta rápida
-        movement_behaviour = self.MovementBehaviour(
-            period=config.movement_update_interval
-        )
+        movement_behaviour = self.MovementBehaviour(period=config.movement_update_interval)
         self.add_behaviour(movement_behaviour)
 
         # Comportamiento de comunicación
@@ -72,9 +69,7 @@ class TaxiAgent(Agent):
         self.add_behaviour(comm_behaviour)
 
         # Comportamiento de reporte de estado - más frecuente para sincronización
-        status_behaviour = self.StatusReportBehaviour(
-            period=config.status_report_interval
-        )
+        status_behaviour = self.StatusReportBehaviour(period=config.status_report_interval)
         self.add_behaviour(status_behaviour)
 
     class MovementBehaviour(PeriodicBehaviour):
@@ -93,13 +88,11 @@ class TaxiAgent(Agent):
                         if arrived:
                             await self._handle_arrival()
             except Exception as e:
-                logger.error(
-                    f"Error in MovementBehaviour for taxi {self.agent.taxi_id}: {e}"  # type: ignore
-                )
-                # Don't re-raise the exception to prevent behavior termination
+                logger.error(f"Error in MovementBehaviour for taxi {self.agent.taxi_id}: {e}") # type: ignore
 
         async def _handle_arrival(self):
             """Maneja llegada al objetivo desde el comportamiento"""
+            
             agent: 'TaxiAgent' = self.agent  # type: ignore
             if not agent.info:
                 return
@@ -112,13 +105,9 @@ class TaxiAgent(Agent):
                 # Cambiar target al destino del pasajero
                 if agent.dropoff_position:
                     agent.info.target_position = agent.dropoff_position
-                    logger.info(
-                        f"Taxi {agent.taxi_id} picked up passenger {agent.info.assigned_passenger_id}, heading to ({agent.dropoff_position.x}, {agent.dropoff_position.y})"
-                    )
+                    logger.info(f"Taxi {agent.taxi_id} picked up passenger {agent.info.assigned_passenger_id}, heading to ({agent.dropoff_position.x}, {agent.dropoff_position.y})")
                 else:
-                    logger.error(
-                        f"Taxi {agent.taxi_id} picked up passenger but no dropoff position saved!"
-                    )
+                    logger.error(f"Taxi {agent.taxi_id} picked up passenger but no dropoff position saved!")
 
                 # Resetear path para forzar recálculo hacia el nuevo destino
                 agent.path = []
@@ -139,16 +128,12 @@ class TaxiAgent(Agent):
                 logger.info(f"Taxi {agent.taxi_id} delivered passenger {passenger_id}")
 
                 # Notificar al coordinador desde el comportamiento
-                await self._notify_coordinator(
-                    "passenger_delivered", {"passenger_id": passenger_id}
-                )
+                await self._notify_coordinator("passenger_delivered", {"passenger_id": passenger_id})
 
-        async def _notify_coordinator(
-            self, event_type: str, data: Optional[Dict] = None
-        ):
+        async def _notify_coordinator(self, event_type: str, data: Optional[Dict] = None):
             """Notifica eventos al coordinador desde el comportamiento"""
+            
             agent: 'TaxiAgent' = self.agent  # type: ignore
-            # coordinator_jid = f"coordinator@{config.openfire_domain}"
             msg = Message(to=COORDINATOR_JID)
             msg.set_metadata("performative", "inform")
             msg.set_metadata("type", event_type)
@@ -182,13 +167,14 @@ class TaxiAgent(Agent):
                 msg.body = json.dumps({"taxi_id": agent.taxi_id})
                 await self.send(msg)
                 
-            # handle messages
+            # Handle messages
             msg = await self.receive(timeout=1)
             if msg:
                 await self._handle_message(msg)
 
         async def _handle_message(self, msg: Message):
             """Maneja mensajes recibidos"""
+            
             agent: 'TaxiAgent' = self.agent  # type: ignore
             if not msg or not msg.body:
                 logger.warning(f"Taxi {agent.taxi_id} received empty message")
@@ -196,9 +182,7 @@ class TaxiAgent(Agent):
 
             try:
                 msg_type = msg.get_metadata("type")
-                logger.info(
-                    f"Taxi {agent.taxi_id} received message type: {msg_type}"
-                )
+                logger.info(f"Taxi {agent.taxi_id} received message type: {msg_type}")
 
                 if msg_type == "assignment":
                     if not agent.info:
@@ -223,9 +207,7 @@ class TaxiAgent(Agent):
                     agent.path = []
                     agent.path_index = 0
 
-                    logger.info(
-                        f"Taxi {agent.taxi_id} assigned to passenger {passenger_id} at ({pickup_pos.x}, {pickup_pos.y}) -> ({dropoff_pos.x}, {dropoff_pos.y})"
-                    )
+                    logger.info(f"Taxi {agent.taxi_id} assigned to passenger {passenger_id} at ({pickup_pos.x}, {pickup_pos.y}) -> ({dropoff_pos.x}, {dropoff_pos.y})")
                     
                 if msg_type == "taxi_info":
                     # Actualizar información del taxi
@@ -256,9 +238,7 @@ class TaxiAgent(Agent):
                     logger.info(f"Taxi {agent.taxi_id} grid updated: {agent.grid.width}x{agent.grid.height}")
                     
             except Exception as e:
-                logger.error(
-                    f"Error handling message in taxi {agent.taxi_id}: {e}"
-                )
+                logger.error(f"Error handling message in taxi {agent.taxi_id}: {e}")
                 logger.error(f"Message body: {msg.body}")
                 logger.error(f"Message metadata: {msg.metadata}")
 
@@ -278,6 +258,7 @@ class TaxiAgent(Agent):
 
     def _patrol_movement(self):
         """Movimiento aleatorio de patrullaje"""
+        
         if not self.grid or not self.info:
             return
             
@@ -294,52 +275,39 @@ class TaxiAgent(Agent):
 
     def _move_towards_target(self):
         """Movimiento hacia objetivo específico"""
+        
         if not self.grid or not self.info:
             return False
             
         if not self.info.target_position:
-            logger.warning(
-                f"Taxi {self.taxi_id} in state {self.info.state.value} but no target position"
-            )
+            logger.warning(f"Taxi {self.taxi_id} in state {self.info.state.value} but no target position")
             return False
 
         # Verificar si ya estamos en el target
         if self.info.position == self.info.target_position:
-            logger.info(
-                f"Taxi {self.taxi_id} already at target ({self.info.target_position.x}, {self.info.target_position.y})"
-            )
+            logger.info(f"Taxi {self.taxi_id} already at target ({self.info.target_position.x}, {self.info.target_position.y})")
             return True
 
         if not self.path or self.path_index >= len(self.path):
             # Calcular nuevo path hacia el objetivo
-            self.path = self.grid.get_path(
-                self.info.position, self.info.target_position
-            )
+            self.path = self.grid.get_path(self.info.position, self.info.target_position)
             self.path_index = 0
-            logger.info(
-                f"Taxi {self.taxi_id} calculated new path to ({self.info.target_position.x}, {self.info.target_position.y}), path length: {len(self.path)}"
-            )
+            logger.info(f"Taxi {self.taxi_id} calculated new path to ({self.info.target_position.x}, {self.info.target_position.y}), path length: {len(self.path)}")
 
         # Mover al siguiente punto en el path
         if self.path_index < len(self.path) - 1:
             self.path_index += 1
             new_pos = self.path[self.path_index]
-            logger.debug(
-                f"Taxi {self.taxi_id} moving from ({self.info.position.x}, {self.info.position.y}) to ({new_pos.x}, {new_pos.y})"
-            )
+            logger.debug(f"Taxi {self.taxi_id} moving from ({self.info.position.x}, {self.info.position.y}) to ({new_pos.x}, {new_pos.y})")
             self.info.position = new_pos
 
             # Verificar si llegamos al objetivo
             if self.info.position == self.info.target_position:
-                logger.info(
-                    f"Taxi {self.taxi_id} arrived at target ({self.info.target_position.x}, {self.info.target_position.y})"
-                )
+                logger.info(f"Taxi {self.taxi_id} arrived at target ({self.info.target_position.x}, {self.info.target_position.y})")
                 return True
         else:
             # Ya estamos en el último punto del path
-            logger.info(
-                f"Taxi {self.taxi_id} reached end of path at ({self.info.position.x}, {self.info.position.y})"
-            )
+            logger.info(f"Taxi {self.taxi_id} reached end of path at ({self.info.position.x}, {self.info.position.y})")
             return True
 
         return False
@@ -380,10 +348,9 @@ async def create_agent_taxi(agent_id: str):
 
 ## LAUNCHER
 async def launch_agent_taxi(n_agents: int):
-    """Spawn ideological agents for this host"""
-    logger.info(
-        f"Spawning {n_agents} ideological agents for host {config.openfire_host}"
-    )
+    """Spawn agents for this host"""
+    
+    logger.info(f"Spawning {n_agents} agents for host {config.openfire_host}")
 
     agents = []
 
