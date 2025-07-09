@@ -462,11 +462,10 @@ class GridTaxiGUI:
             await self._setup_xmpp_users()
 
             # Crear coordinador
-            coordinator_jid = f"coordinator@{config.openfire_domain}"
             self.coordinator = CoordinatorAgent(
-                coordinator_jid, "coordinator_pass", self.grid
+                f"coordinator@{config.openfire_domain}", "coordinator_pass", self.grid
             )
-            await self.coordinator.start()
+            await self.coordinator.start(auto_register=True)
 
             # Crear taxis
             # await self._create_taxis()

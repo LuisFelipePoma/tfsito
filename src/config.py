@@ -13,7 +13,8 @@ class TaxiSystemConfig:
     openfire_port: int = 9090
     openfire_admin_user: str = "admin"
     openfire_admin_password: str = "123"
-    openfire_domain: str = "192.168.18.19"
+    openfire_domain: str = "localhost"
+    openfire_container: str = "0464e43aaab5"
     openfire_xmpp_port: int = 5222
     
     # Grid Configuration
@@ -49,6 +50,7 @@ def load_config_from_env():
     config.openfire_admin_user = os.getenv("OPENFIRE_ADMIN_USER", config.openfire_admin_user)
     config.openfire_admin_password = os.getenv("OPENFIRE_ADMIN_PASSWORD", config.openfire_admin_password)
     config.openfire_domain = os.getenv("OPENFIRE_DOMAIN", config.openfire_domain)
+    config.openfire_container= os.getenv("OPENFIRE_CONTAINER", config.openfire_container)
     
     config.host_name = os.getenv("HOST_NAME", config.openfire_domain)
     config.grid_width = int(os.getenv("GRID_WIDTH", str(config.grid_width)))

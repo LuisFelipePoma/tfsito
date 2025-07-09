@@ -1,11 +1,7 @@
 from enum import Enum
 import json
 import time
-from typing import Dict, List, Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from typing import cast
-    
+from typing import Dict, List, Optional
 import uuid
 from spade.agent import Agent
 from spade.behaviour import CyclicBehaviour, PeriodicBehaviour
@@ -19,8 +15,7 @@ import asyncio
 from src.services.openfire_api import openfire_api
 from src.config import config
 
-COORDINATOR_JID = f"coordinator@{config.openfire_domain}"
-
+COORDINATOR_JID = f"coordinator@{config.openfire_container}"
 
 # ==================== TAXI AGENT ====================
 class TaxiAgent(Agent):
@@ -42,15 +37,7 @@ class TaxiAgent(Agent):
 
     """Agente taxi que se comunica vía SPADE/OpenFire"""
 
-    # TaxiInfo(
-    #             taxi_id=taxi_id,
-    #             position=initial_position,
-    #             target_position=None,
-    #             state=TaxiState.IDLE,
-    #             capacity=4,
-    #             current_passengers=0,
-    #             assigned_passenger_id=None,
-    #         )
+  
     def __init__(
         self,
         jid: str,
@@ -186,7 +173,16 @@ class TaxiAgent(Agent):
                 msg.set_metadata("type", "get_grid_info")
                 msg.body = json.dumps({"request": "grid_info"})
                 await self.send(msg)
+            
+            if not agent.info:
+                logger.info(f"Sending request for taxi info { COORDINATOR_JID}")
+                msg = Message(to=COORDINATOR_JID)
+                msg.set_metadata("performative", "request")
+                msg.set_metadata("type", "get_taxi_info")
+                msg.body = json.dumps({"taxi_id": agent.taxi_id})
+                await self.send(msg)
                 
+            # handle messages
             msg = await self.receive(timeout=1)
             if msg:
                 await self._handle_message(msg)
@@ -231,6 +227,12 @@ class TaxiAgent(Agent):
                         f"Taxi {agent.taxi_id} assigned to passenger {passenger_id} at ({pickup_pos.x}, {pickup_pos.y}) -> ({dropoff_pos.x}, {dropoff_pos.y})"
                     )
                     
+                if msg_type == "taxi_info":
+                    # Actualizar información del taxi
+                    data = json.loads(msg.body)
+                    logger.info("Received taxi information from coordinator")
+                    agent.info = TaxiInfo(**data)
+                        
                 elif msg_type == "grid_info":
                     # Actualizar información de la cuadrícula
                     data = json.loads(msg.body)

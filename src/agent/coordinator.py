@@ -140,6 +140,15 @@ class CoordinatorAgent(Agent):
                     response.set_metadata("type", "grid_info")
                     response.body = json.dumps(self.agent.grid.to_dict())  # Asegúrate de que grid tenga método to_dict()
                     await self.send(response)
+                    
+                if msg_type == "get_taxi_info":
+                    # Responder con información del taxi
+                    logger.info("Sending taxi information to client")
+                    response = Message(to=msg.sender)
+                    response.set_metadata("performative", "inform")
+                    response.set_metadata("type", "taxi_info")
+                    response.body = json.dumps(self.agent.taxis.get(msg.body, {}).to_dict())
+                    await self.send(response)
 
             except Exception as e:
                 logger.error(f"Error handling request in coordinator: {e}")
