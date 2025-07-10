@@ -47,7 +47,7 @@ class TaxiAgent(Agent):
                 result[k] = self._to_serializable_dict(v)
             return result
         elif isinstance(obj, Enum):
-            return obj.name
+            return obj.value  # Usar .value en lugar de .name para consistencia
         elif isinstance(obj, list):
             return [self._to_serializable_dict(i) for i in obj]
         elif isinstance(obj, dict):
@@ -78,17 +78,35 @@ class TaxiAgent(Agent):
         async def run(self):
             try:
                 agent: 'TaxiAgent' = self.agent  # type: ignore
-                if agent.info and agent.grid:
-                    if agent.info.state == TaxiState.IDLE:
-                        # Movimiento aleatorio de patrullaje
-                        agent._patrol_movement()
-                    elif agent.info.state in [TaxiState.PICKUP, TaxiState.DROPOFF]:
-                        # Movimiento hacia objetivo
-                        arrived = agent._move_towards_target()
-                        if arrived:
-                            await self._handle_arrival()
+                if not agent.info:
+                    logger.info(f"Taxi {agent.taxi_id} movement check - info not initialized")
+                    return
+                    
+                if not agent.grid:
+                    logger.info(f"Taxi {agent.taxi_id} movement check - grid not initialized") 
+                    return
+                    
+                logger.info(f"Taxi {agent.taxi_id} movement check - State: {agent.info.state.value}, Position: ({agent.info.position.x}, {agent.info.position.y}), Target: {agent.info.target_position}")
+                
+                if agent.info.state == TaxiState.IDLE:
+                    # Movimiento aleatorio de patrullaje
+                    logger.info(f"Taxi {agent.taxi_id} patrolling...")
+                    self._patrol_movement()
+                elif agent.info.state in [TaxiState.PICKUP, TaxiState.DROPOFF]:
+                    # Movimiento hacia objetivo
+                    logger.info(f"🚕 Taxi {agent.taxi_id} MOVING towards target: {agent.info.target_position}")
+                    arrived = self._move_towards_target()
+                    if arrived:
+                        logger.info(f"🎯 Taxi {agent.taxi_id} ARRIVED at target!")
+                        await self._handle_arrival()
+                elif agent.info.state == TaxiState.ASSIGNED:
+                    logger.info(f"Taxi {agent.taxi_id} is assigned but not yet moving - checking state")
+                else:
+                    logger.warning(f"Taxi {agent.taxi_id} in unknown state: {agent.info.state}")
             except Exception as e:
                 logger.error(f"Error in MovementBehaviour for taxi {self.agent.taxi_id}: {e}") # type: ignore
+                import traceback
+                logger.error(traceback.format_exc())
 
         async def _handle_arrival(self):
             """Maneja llegada al objetivo desde el comportamiento"""
@@ -145,6 +163,102 @@ class TaxiAgent(Agent):
             msg.body = json.dumps(payload)
             await self.send(msg)
 
+        
+        def _patrol_movement(self):
+            agent: 'TaxiAgent' = self.agent  # type: ignore
+            """Movimiento aleatorio de patrullaje"""
+            
+            
+            if not agent.grid or not agent.info:
+                logger.info(f"Taxi {agent.taxi_id} cannot patrol: grid={bool(agent.grid)}, info={bool(agent.info)}")
+                return
+            
+            logger.info(f"Taxi {agent.taxi_id} patrolling - current position: ({agent.info.position.x}, {agent.info.position.y}), path index: {agent.path_index}, path: {agent.path}, len path: {len(agent.path)}")
+            
+            if not agent.path or agent.path_index >= len(agent.path):
+                logger.info(f"Taxi {agent.taxi_id} {agent.path} {agent.path_index} - recalculating patrol path")
+                # Elegir nuevo destino aleatorio
+                target = agent.grid.get_random_intersection()
+                agent.path = agent.grid.get_path(agent.info.position, target)
+                agent.path_index = 0
+
+            # Mover al siguiente punto en el path
+            if agent.path_index < len(agent.path):
+                logger.info(f"Taxi {agent.taxi_id} patrolling to next position: {agent.path[agent.path_index]}")
+                agent.info.position = agent.path[agent.path_index]
+                agent.path_index += 1
+
+        def _move_towards_target(self):
+            """Movimiento hacia objetivo específico"""
+            
+            if not self.agent.grid or not self.agent.info:
+                logger.warning(f"Taxi {self.agent.taxi_id} cannot move: grid={bool(self.agent.grid)}, info={bool(self.agent.info)}")
+                return False
+                
+            if not self.agent.info.target_position:
+                logger.warning(f"Taxi {self.agent.taxi_id} in state {self.agent.info.state.value} but no target position")
+                return False
+
+            current_pos = self.agent.info.position
+            target_pos = self.agent.info.target_position
+            
+            logger.info(f"🚕 Taxi {self.agent.taxi_id} current pos: ({current_pos.x}, {current_pos.y}), target: ({target_pos.x}, {target_pos.y})")
+
+            # Verificar si ya estamos en el target
+            if current_pos == target_pos:
+                logger.info(f"🎯 Taxi {self.agent.taxi_id} already at target ({target_pos.x}, {target_pos.y})")
+                return True
+
+            # Calcular o usar path existente
+            if not self.path or self.path_index >= len(self.path):
+                # Calcular nuevo path hacia el objetivo
+                try:
+                    logger.info(f"🗺️ Taxi {self.agent.taxi_id} calculating new path from ({current_pos.x}, {current_pos.y}) to ({target_pos.x}, {target_pos.y})")
+                    self.path = self.grid.get_path(current_pos, target_pos)
+                    self.path_index = 0
+                    logger.info(f"✅ Taxi {self.agent.taxi_id} calculated path with {len(self.agent.path)} steps")
+                    
+                    if len(self.path) == 0:
+                        logger.error(f"❌ Taxi {self.agent.taxi_id} got empty path!")
+                        return False
+                        
+                    if len(self.path) <= 1:
+                        logger.warning(f"⚠️ Taxi {self.agent.taxi_id} got very short path: {len(self.path)}")
+                        
+                except Exception as e:
+                    logger.error(f"💥 Taxi {self.agent.taxi_id} failed to calculate path: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    return False
+
+            # Mover al siguiente punto en el path
+            if self.path_index < len(self.path) - 1:
+                self.path_index += 1
+                new_pos = self.path[self.path_index]
+                old_pos = self.agent.info.position
+                self.agent.info.position = new_pos
+                
+                logger.info(f"🚶 Taxi {self.agent.taxi_id} moved from ({old_pos.x}, {old_pos.y}) to ({new_pos.x}, {new_pos.y}) (step {self.path_index}/{len(self.path)-1})")
+
+                # Verificar si llegamos al objetivo
+                if self.agent.info.position == target_pos:
+                    logger.info(f"🎯 Taxi {self.agent.taxi_id} ARRIVED at target ({target_pos.x}, {target_pos.y})")
+                    return True
+            else:
+                # Ya estamos en el último punto del path
+                if current_pos == target_pos:
+                    logger.info(f"🎯 Taxi {self.agent.taxi_id} reached target at end of path ({current_pos.x}, {current_pos.y})")
+                    return True
+                else:
+                    logger.warning(f"⚠️ Taxi {self.agent.taxi_id} reached end of path but not at target. Position: ({current_pos.x}, {current_pos.y}), Target: ({target_pos.x}, {target_pos.y})")
+                    # Recalcular path
+                    self.path = []
+                    self.path_index = 0
+                    logger.info(f"🔄 Taxi {self.agent.taxi_id} resetting path for recalculation")
+
+            return False
+
+
     class CommunicationBehaviour(CyclicBehaviour):
         """Maneja comunicación XMPP"""
 
@@ -189,11 +303,20 @@ class TaxiAgent(Agent):
                         logger.warning(f"Taxi {agent.taxi_id} received assignment but info not initialized")
                         return
                         
+                    if not agent.grid:
+                        logger.warning(f"Taxi {agent.taxi_id} received assignment but grid not initialized")
+                        return
+                        
                     # Asignación de pasajero
                     data = json.loads(msg.body)
                     passenger_id = data["passenger_id"]
                     pickup_pos = GridPosition(data["pickup_x"], data["pickup_y"])
                     dropoff_pos = GridPosition(data["dropoff_x"], data["dropoff_y"])
+
+                    # Verificar que el taxi está disponible
+                    if agent.info.state != TaxiState.IDLE:
+                        logger.warning(f"Taxi {agent.taxi_id} received assignment but is not IDLE (current state: {agent.info.state.value})")
+                        return
 
                     # Actualizar estado del taxi
                     agent.info.assigned_passenger_id = passenger_id
@@ -207,13 +330,84 @@ class TaxiAgent(Agent):
                     agent.path = []
                     agent.path_index = 0
 
-                    logger.info(f"Taxi {agent.taxi_id} assigned to passenger {passenger_id} at ({pickup_pos.x}, {pickup_pos.y}) -> ({dropoff_pos.x}, {dropoff_pos.y})")
+                    logger.info(f"🚕 Taxi {agent.taxi_id} ASSIGNED to passenger {passenger_id}")
+                    logger.info(f"   📍 Current position: ({agent.info.position.x}, {agent.info.position.y})")
+                    logger.info(f"   🎯 Pickup target: ({pickup_pos.x}, {pickup_pos.y})")
+                    logger.info(f"   🏁 Dropoff destination: ({dropoff_pos.x}, {dropoff_pos.y})")
+                    logger.info(f"   🔄 State changed to: {agent.info.state.value}")
+                    
+                    # Calcular distancia y verificar que sea razonable
+                    distance = agent.info.position.manhattan_distance(pickup_pos)
+                    logger.info(f"   📏 Distance to pickup: {distance} cells")
+                    
+                    if distance > 20:  # Sanity check
+                        logger.warning(f"⚠️ Very long distance to pickup: {distance}")
+                    
+                    # Enviar confirmación al coordinador
+                    confirmation_msg = Message(to=COORDINATOR_JID)
+                    confirmation_msg.set_metadata("performative", "inform")
+                    confirmation_msg.set_metadata("type", "assignment_accepted")
+                    confirmation_data = {
+                        "taxi_id": agent.taxi_id,
+                        "passenger_id": passenger_id
+                    }
+                    confirmation_msg.body = json.dumps(confirmation_data)
+                    await self.send(confirmation_msg)
+                    
+                    logger.info(f"✅ Taxi {agent.taxi_id} sent assignment confirmation to coordinator")
+                    
+                    # Verificar inmediatamente después de la asignación
+                    logger.info(f"🔍 POST-ASSIGNMENT CHECK:")
+                    logger.info(f"   State: {agent.info.state.value}")
+                    logger.info(f"   Target: {agent.info.target_position}")
+                    logger.info(f"   Assigned passenger: {agent.info.assigned_passenger_id}")
+                    logger.info(f"   Can move? {agent.info.state in [TaxiState.PICKUP, TaxiState.DROPOFF]}")
                     
                 if msg_type == "taxi_info":
                     # Actualizar información del taxi
                     data = json.loads(msg.body)
                     logger.info("Received taxi information from coordinator")
-                    agent.info = TaxiInfo(**data)
+                    
+                    # Verificar si recibimos datos válidos
+                    if not data or not data.get("taxi_id"):
+                        logger.warning(f"Taxi {agent.taxi_id} received empty or invalid taxi info, will wait for coordinator to create it")
+                        return
+                    
+                    try:
+                        # Convertir datos JSON a objetos apropiados
+                        position_data = data.get("position", {})
+                        position = GridPosition(position_data.get("x", 0), position_data.get("y", 0))
+                        
+                        target_position = None
+                        target_data = data.get("target_position")
+                        if target_data:
+                            target_position = GridPosition(target_data.get("x", 0), target_data.get("y", 0))
+                        
+                        # Convertir estado - manejar tanto strings como valores de enum
+                        state_value = data["state"]
+                        if isinstance(state_value, str):
+                            # Convertir de mayúsculas a minúsculas para que coincida con enum values
+                            state = TaxiState(state_value.lower())
+                        else:
+                            state = TaxiState.IDLE  # Default fallback
+                        
+                        # Crear TaxiInfo con los datos recibidos
+                        agent.info = TaxiInfo(
+                            taxi_id=data["taxi_id"],
+                            position=position,
+                            target_position=target_position,
+                            state=state,
+                            capacity=data["capacity"],
+                            current_passengers=data["current_passengers"],
+                            assigned_passenger_id=data.get("assigned_passenger_id"),
+                            speed=data.get("speed", 1.0)
+                        )
+                        
+                        logger.info(f"Taxi {agent.taxi_id} info updated: position=({position.x}, {position.y}), state={agent.info.state.value}")
+                        
+                    except (KeyError, ValueError, TypeError) as e:
+                        logger.error(f"Error processing taxi info for {agent.taxi_id}: {e}")
+                        logger.error(f"Data received: {data}")
                         
                 elif msg_type == "grid_info":
                     # Actualizar información de la cuadrícula
@@ -255,63 +449,6 @@ class TaxiAgent(Agent):
                 serializable_info = agent._to_serializable_dict(agent.info)
                 msg.body = json.dumps(serializable_info)
                 await self.send(msg)
-
-    def _patrol_movement(self):
-        """Movimiento aleatorio de patrullaje"""
-        
-        if not self.grid or not self.info:
-            return
-            
-        if not self.path or self.path_index >= len(self.path):
-            # Elegir nuevo destino aleatorio
-            target = self.grid.get_random_intersection()
-            self.path = self.grid.get_path(self.info.position, target)
-            self.path_index = 0
-
-        # Mover al siguiente punto en el path
-        if self.path_index < len(self.path) - 1:
-            self.path_index += 1
-            self.info.position = self.path[self.path_index]
-
-    def _move_towards_target(self):
-        """Movimiento hacia objetivo específico"""
-        
-        if not self.grid or not self.info:
-            return False
-            
-        if not self.info.target_position:
-            logger.warning(f"Taxi {self.taxi_id} in state {self.info.state.value} but no target position")
-            return False
-
-        # Verificar si ya estamos en el target
-        if self.info.position == self.info.target_position:
-            logger.info(f"Taxi {self.taxi_id} already at target ({self.info.target_position.x}, {self.info.target_position.y})")
-            return True
-
-        if not self.path or self.path_index >= len(self.path):
-            # Calcular nuevo path hacia el objetivo
-            self.path = self.grid.get_path(self.info.position, self.info.target_position)
-            self.path_index = 0
-            logger.info(f"Taxi {self.taxi_id} calculated new path to ({self.info.target_position.x}, {self.info.target_position.y}), path length: {len(self.path)}")
-
-        # Mover al siguiente punto en el path
-        if self.path_index < len(self.path) - 1:
-            self.path_index += 1
-            new_pos = self.path[self.path_index]
-            logger.debug(f"Taxi {self.taxi_id} moving from ({self.info.position.x}, {self.info.position.y}) to ({new_pos.x}, {new_pos.y})")
-            self.info.position = new_pos
-
-            # Verificar si llegamos al objetivo
-            if self.info.position == self.info.target_position:
-                logger.info(f"Taxi {self.taxi_id} arrived at target ({self.info.target_position.x}, {self.info.target_position.y})")
-                return True
-        else:
-            # Ya estamos en el último punto del path
-            logger.info(f"Taxi {self.taxi_id} reached end of path at ({self.info.position.x}, {self.info.position.y})")
-            return True
-
-        return False
-
 
 async def create_agent_taxi(agent_id: str):
     """Create and initialize an ideological agent"""
