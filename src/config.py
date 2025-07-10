@@ -14,7 +14,7 @@ class TaxiSystemConfig:
     openfire_admin_user: str = "admin"
     openfire_admin_password: str = "123"
     openfire_domain: str = "localhost"
-    openfire_container: str = "0464e43aaab5" # Docker container ID
+    openfire_container: str = "87acef27b664" # Docker container ID
     openfire_xmpp_port: int = 5222
     
     # Grid Configuration

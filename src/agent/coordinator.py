@@ -146,9 +146,17 @@ class CoordinatorAgent(Agent):
                     response = Message(to=msg.sender)
                     response.set_metadata("performative", "inform")
                     response.set_metadata("type", "grid_info")
-                    response.body = json.dumps(
-                        coordinator.grid.to_dict()
-                    )  # Asegúrate de que grid tenga método to_dict()
+                    
+                    # Convertir grid a dict manualmente
+                    grid_dict = {
+                        "width": coordinator.grid.width,
+                        "height": coordinator.grid.height,
+                        "intersections": [
+                            {"x": pos.x, "y": pos.y} 
+                            for pos in coordinator.grid.intersections
+                        ]
+                    }
+                    response.body = json.dumps(grid_dict)
                     await self.send(response)
 
                 if msg_type == "get_taxi_info":
@@ -157,9 +165,35 @@ class CoordinatorAgent(Agent):
                     response = Message(to=msg.sender)
                     response.set_metadata("performative", "inform")
                     response.set_metadata("type", "taxi_info")
-                    response.body = json.dumps(
-                        coordinator.taxis.get(msg.body, {}).to_dict() # type: ignore
-                    )
+                    
+                    # Obtener información del taxi de forma segura
+                    taxi_id = str(msg.body) if msg.body else ""
+                    taxi_info = coordinator.taxis.get(taxi_id)
+                    
+                    if taxi_info:
+                        # Si el taxi existe, convertir a dict manualmente
+                        taxi_dict = {
+                            "taxi_id": taxi_info.taxi_id,
+                            "position": {
+                                "x": taxi_info.position.x,
+                                "y": taxi_info.position.y
+                            },
+                            "target_position": {
+                                "x": taxi_info.target_position.x,
+                                "y": taxi_info.target_position.y
+                            } if taxi_info.target_position else None,
+                            "state": taxi_info.state.name,
+                            "capacity": taxi_info.capacity,
+                            "current_passengers": taxi_info.current_passengers,
+                            "assigned_passenger_id": taxi_info.assigned_passenger_id,
+                            "speed": taxi_info.speed
+                        }
+                        response.body = json.dumps(taxi_dict)
+                    else:
+                        # Si el taxi no existe, devolver objeto vacío
+                        logger.warning(f"Taxi {taxi_id} not found")
+                        response.body = json.dumps({})
+                    
                     await self.send(response)
 
             except Exception as e:
