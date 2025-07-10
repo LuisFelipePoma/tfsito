@@ -114,17 +114,31 @@ class ConstraintSolver:
                     assignment[i][j] = var
                     all_vars.append(var)
             
-            # RESTRICCIONES
+            # RESTRICCIONES DE EXCLUSIVIDAD ESTRICTA
             
-            # Restricción 1: cada taxi a máximo un pasajero
+            # Restricción 1: cada taxi a EXACTAMENTE un pasajero o ninguno (máximo 1)
             for i in range(n_taxis):
-                solver.Add(solver.Sum([assignment[i][j] for j in range(n_passengers)]) <= 1)
+                taxi_sum = solver.Sum([assignment[i][j] for j in range(n_passengers)])
+                solver.Add(taxi_sum <= 1)
+                logger.debug(f"Constraint: Taxi {i} can be assigned to at most 1 passenger")
             
-            # Restricción 2: cada pasajero a máximo un taxi
+            # Restricción 2: cada pasajero a EXACTAMENTE un taxi o ninguno (máximo 1)
             for j in range(n_passengers):
-                solver.Add(solver.Sum([assignment[i][j] for i in range(n_taxis)]) <= 1)
+                passenger_sum = solver.Sum([assignment[i][j] for i in range(n_taxis)])
+                solver.Add(passenger_sum <= 1)
+                logger.debug(f"Constraint: Passenger {j} can be assigned to at most 1 taxi")
             
-            # Restricción 3: distancia y capacidad
+            # Restricción 3: no asignar pasajeros ya asignados a otros taxis
+            for j, passenger in enumerate(passengers):
+                if passenger.assigned_taxi_id:
+                    # Si el pasajero ya tiene un taxi asignado, no permitir nuevas asignaciones
+                    for i in range(n_taxis):
+                        taxi = taxis[i]
+                        if taxi.taxi_id != passenger.assigned_taxi_id:
+                            solver.Add(assignment[i][j] == 0)
+                            logger.debug(f"Blocking assignment: Passenger {passenger.passenger_id} already assigned to {passenger.assigned_taxi_id}")
+            
+            # Restricción 4: distancia y capacidad
             feasible_count = 0
             for i in range(n_taxis):
                 for j in range(n_passengers):
@@ -133,8 +147,10 @@ class ConstraintSolver:
                     
                     distance = taxi.position.manhattan_distance(passenger.pickup_position)
                     
-                    # Si está muy lejos o taxi lleno, no permitir asignación
-                    if distance > max_distance or taxi.current_passengers >= taxi.capacity:
+                    # Si está muy lejos, taxi lleno, o pasajero ya asignado, no permitir asignación
+                    if (distance > max_distance or 
+                        taxi.current_passengers >= taxi.capacity or
+                        passenger.assigned_taxi_id is not None):
                         solver.Add(assignment[i][j] == 0)
                     else:
                         feasible_count += 1
@@ -214,32 +230,56 @@ class ConstraintSolver:
                                 taxi = taxis[i]
                                 passenger = passengers[j]
                                 
-                                # Verificar exclusividad
+                                # Verificar exclusividad ESTRICTA
                                 if passenger.passenger_id in assigned_passengers:
-                                    logger.error(f"❌ DUPLICATE PASSENGER ASSIGNMENT: {passenger.passenger_id}")
+                                    logger.error(f"❌ CRITICAL ERROR: DUPLICATE PASSENGER ASSIGNMENT: {passenger.passenger_id}")
+                                    logger.error(f"   This violates the exclusivity constraint!")
                                     continue
                                 if taxi.taxi_id in assigned_taxis:
-                                    logger.error(f"❌ DUPLICATE TAXI ASSIGNMENT: {taxi.taxi_id}")
+                                    logger.error(f"❌ CRITICAL ERROR: DUPLICATE TAXI ASSIGNMENT: {taxi.taxi_id}")
+                                    logger.error(f"   This violates the exclusivity constraint!")
+                                    continue
+                                
+                                # Verificar que el pasajero no esté ya asignado a otro taxi
+                                if passenger.assigned_taxi_id and passenger.assigned_taxi_id != taxi.taxi_id:
+                                    logger.error(f"❌ ASSIGNMENT CONFLICT: Passenger {passenger.passenger_id} already assigned to {passenger.assigned_taxi_id}, trying to assign to {taxi.taxi_id}")
                                     continue
                                 
                                 distance = taxi.position.manhattan_distance(passenger.pickup_position)
                                 
+                                # ✅ ASIGNACIÓN VÁLIDA Y EXCLUSIVA
                                 temp_assignments[taxi.taxi_id] = passenger.passenger_id
                                 assigned_passengers.add(passenger.passenger_id)
                                 assigned_taxis.add(taxi.taxi_id)
                                 extracted_count += 1
                                 
+                                passenger_type = "DISABLED" if self._passenger_is_disabled(passenger) else "NORMAL"
+                                priority_flag = "🔥 PRIORITY" if self._passenger_is_disabled(passenger) else ""
+                                
                                 logger.info(
-                                    f"  ✓ Taxi {taxi.taxi_id} -> Passenger {passenger.passenger_id}: "
-                                    f"distance={distance}, disabled={self._passenger_is_disabled(passenger)}"
+                                    f"  ✅ EXCLUSIVE ASSIGNMENT: Taxi {taxi.taxi_id} -> Passenger {passenger.passenger_id} [{passenger_type}] "
+                                    f"distance={distance} {priority_flag}"
                                 )
                         except Exception as e:
                             logger.error(f"Error extracting variable assign_{i}_{j}: {e}")
                 
                 logger.info(f"Extracted {extracted_count} assignments from solution #{solutions_found}")
                 
-                # Si encontramos asignaciones válidas, usar esta solución
+                # Si encontramos asignaciones válidas, validar exclusividad final
                 if extracted_count > 0:
+                    # Validación final de exclusividad
+                    taxis_in_assignments = list(temp_assignments.keys())
+                    passengers_in_assignments = list(temp_assignments.values())
+                    
+                    if len(taxis_in_assignments) != len(set(taxis_in_assignments)):
+                        logger.error("❌ FINAL VALIDATION FAILED: Duplicate taxis in assignments!")
+                        continue
+                        
+                    if len(passengers_in_assignments) != len(set(passengers_in_assignments)):
+                        logger.error("❌ FINAL VALIDATION FAILED: Duplicate passengers in assignments!")
+                        continue
+                    
+                    logger.info(f"✅ FINAL VALIDATION PASSED: {extracted_count} exclusive assignments confirmed")
                     assignments = temp_assignments
                     break
                 else:

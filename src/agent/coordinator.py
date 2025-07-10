@@ -300,12 +300,9 @@ class CoordinatorAgent(Agent):
         def _create_new_passenger(
             self,
             is_disabled=False,
-            is_elderly=False,
-            is_child=False,
-            is_pregnant=False,
             price=10.0,
         ):
-            """Crea un nuevo pasajero con opciones de discapacidad y precio"""
+            """Crea un nuevo pasajero: normal o discapacitado"""
             coordinator: "CoordinatorAgent" = self.agent  # type: ignore
 
             passenger_id = f"P{coordinator.passenger_counter}"
@@ -322,17 +319,10 @@ class CoordinatorAgent(Agent):
                 dropoff = coordinator.grid.get_random_intersection()
                 attempts += 1
 
-            # Determinar prioridades y precio aleatorio
-            if not any([is_disabled, is_elderly, is_child, is_pregnant]):
-                # Asignar aleatoriamente algunas prioridades
-                if random.random() < 0.1:  # 10% discapacitado
-                    is_disabled = True
-                elif random.random() < 0.15:  # 15% adulto mayor
-                    is_elderly = True
-                elif random.random() < 0.1:  # 10% niño
-                    is_child = True
-                elif random.random() < 0.1:  # 10% embarazada
-                    is_pregnant = True
+            # Solo determinar si es discapacitado o no
+            if not is_disabled:
+                # 15% probabilidad de ser discapacitado
+                is_disabled = random.random() < 0.15
 
             # Precio aleatorio con variación
             if price == 10.0:
@@ -345,28 +335,18 @@ class CoordinatorAgent(Agent):
                 state=PassengerState.WAITING,
                 wait_time=0.0,
                 is_disabled=is_disabled,
-                is_elderly=is_elderly,
-                is_child=is_child,
-                is_pregnant=is_pregnant,
+                is_elderly=False,   # Siempre False ahora
+                is_child=False,     # Siempre False ahora
+                is_pregnant=False,  # Siempre False ahora
                 price=price,
             )
 
             coordinator.passengers[passenger_id] = passenger
 
-            # Log detallado
-            priorities = []
-            if is_disabled:
-                priorities.append("DISABLED")
-            if is_elderly:
-                priorities.append("ELDERLY")
-            if is_child:
-                priorities.append("CHILD")
-            if is_pregnant:
-                priorities.append("PREGNANT")
-
-            priority_str = f" [{', '.join(priorities)}]" if priorities else ""
+            # Log simplificado
+            passenger_type = "DISABLED" if is_disabled else "NORMAL"
             logger.info(
-                f"Created passenger {passenger_id}{priority_str} at ({pickup.x}, {pickup.y}) -> ({dropoff.x}, {dropoff.y}), price: S/{price:.2f}"
+                f"Created passenger {passenger_id} [{passenger_type}] at ({pickup.x}, {pickup.y}) -> ({dropoff.x}, {dropoff.y}), price: S/{price:.2f}"
             )
 
             return passenger

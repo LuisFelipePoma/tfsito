@@ -167,7 +167,8 @@ class GridTaxiGUI:
         legend_items = [
             ("◆", "Taxi disponible", "gold"),
             ("◆", "Taxi ocupado", "orange"),
-            ("■", "Pasajero esperando", "blue"),
+            ("■", "Pasajero normal", "blue"),
+            ("●", "Pasajero discapacitado", "purple"),
             ("▲", "Destino", "red"),
             ("╋", "Intersección", "gray"),
         ]
@@ -257,28 +258,66 @@ class GridTaxiGUI:
                 x = passenger.pickup_position.x * cell_size + cell_size // 2
                 y = passenger.pickup_position.y * cell_size + cell_size // 2
 
-                # Pasajero
-                self.canvas.create_rectangle(
-                    x - 6,
-                    y - 6,
-                    x + 6,
-                    y + 6,
-                    fill="blue",
-                    outline="darkblue",
-                    width=2,
-                    tags="entities",
-                )
+                # Determinar color y forma según tipo de pasajero
+                if passenger.is_disabled:
+                    # Pasajero discapacitado: círculo púrpura con símbolo de silla de ruedas
+                    passenger_color = "purple"
+                    passenger_outline = "darkviolet"
+                    passenger_symbol = "♿"
+                    passenger_text_color = "darkviolet"
+                else:
+                    # Pasajero normal: cuadrado azul
+                    passenger_color = "blue"
+                    passenger_outline = "darkblue"
+                    passenger_symbol = "👤"
+                    passenger_text_color = "darkblue"
+
+                # Dibujar pasajero con forma apropiada
+                if passenger.is_disabled:
+                    # Círculo para discapacitados
+                    self.canvas.create_oval(
+                        x - 8,
+                        y - 8,
+                        x + 8,
+                        y + 8,
+                        fill=passenger_color,
+                        outline=passenger_outline,
+                        width=3,
+                        tags="entities",
+                    )
+                    # Símbolo de silla de ruedas
+                    self.canvas.create_text(
+                        x,
+                        y,
+                        text=passenger_symbol,
+                        font=("Arial", 10, "bold"),
+                        fill="white",
+                        tags="entities",
+                    )
+                else:
+                    # Cuadrado para normales
+                    self.canvas.create_rectangle(
+                        x - 6,
+                        y - 6,
+                        x + 6,
+                        y + 6,
+                        fill=passenger_color,
+                        outline=passenger_outline,
+                        width=2,
+                        tags="entities",
+                    )
 
                 # Línea punteada al destino
                 dest_x = passenger.dropoff_position.x * cell_size + cell_size // 2
                 dest_y = passenger.dropoff_position.y * cell_size + cell_size // 2
+                line_color = passenger_outline
                 self.canvas.create_line(
                     x,
                     y,
                     dest_x,
                     dest_y,
-                    fill="blue",
-                    width=1,
+                    fill=line_color,
+                    width=2 if passenger.is_disabled else 1,
                     dash=(3, 3),
                     tags="entities",
                 )
@@ -297,13 +336,14 @@ class GridTaxiGUI:
                     tags="entities",
                 )
 
-                # ID del pasajero
+                # ID del pasajero con tipo
+                passenger_type = "D" if passenger.is_disabled else "N"
                 self.canvas.create_text(
                     x,
                     y + 15,
-                    text=passenger.passenger_id[-2:],
-                    font=("Arial", 8),
-                    fill="darkblue",
+                    text=f"{passenger.passenger_id[-2:]}({passenger_type})",
+                    font=("Arial", 8, "bold" if passenger.is_disabled else "normal"),
+                    fill=passenger_text_color,
                     tags="entities",
                 )
 
@@ -402,35 +442,97 @@ class GridTaxiGUI:
         logger.info("System stopped")
 
     def _add_passenger(self):
-        """Agrega un nuevo pasajero con opciones de discapacidad y precio"""
+        """Agrega un nuevo pasajero: normal o discapacitado"""
         if not self.coordinator:
             messagebox.showwarning("Sistema", "Inicie el sistema primero")
             return
-        # Diálogo para datos del pasajero
+            
+        # Diálogo simplificado para agregar pasajero
         dialog = tk.Toplevel(self.root)
         dialog.title("Agregar Pasajero")
-        dialog.geometry("300x200")
-        tk.Label(dialog, text="¿Es discapacitado?", font=("Arial", 10)).pack(pady=5)
-        is_disabled_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(dialog, text="Sí", variable=is_disabled_var).pack()
-        tk.Label(dialog, text="Precio ofrecido (S/)", font=("Arial", 10)).pack(pady=5)
-        price_var = tk.DoubleVar(value=10.0)
-        price_entry = tk.Entry(dialog, textvariable=price_var)
-        price_entry.pack()
-
-        def submit():
-            is_disabled = is_disabled_var.get()
-            try:
-                price = float(price_var.get())
-            except Exception:
-                price = 10.0
-            dialog.destroy()
-            # self.coordinator._create_new_passenger(is_disabled=is_disabled, price=price)
-            self.status_text.set("Nuevo pasajero agregado")
-
-        tk.Button(dialog, text="Agregar", command=submit).pack(pady=10)
+        dialog.geometry("320x180")
+        dialog.resizable(False, False)
+        
+        # Centrar el diálogo
         dialog.transient(self.root)
         dialog.grab_set()
+        
+        main_frame = ttk.Frame(dialog, padding=15)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Título
+        ttk.Label(
+            main_frame, 
+            text="Agregar Nuevo Pasajero", 
+            font=("Arial", 12, "bold")
+        ).pack(pady=(0, 15))
+        
+        # Tipo de pasajero
+        type_frame = ttk.LabelFrame(main_frame, text="Tipo de Pasajero", padding=10)
+        type_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        passenger_type = tk.StringVar(value="normal")
+        
+        ttk.Radiobutton(
+            type_frame, 
+            text="👤 Normal", 
+            variable=passenger_type, 
+            value="normal"
+        ).pack(anchor=tk.W)
+        
+        ttk.Radiobutton(
+            type_frame, 
+            text="♿ Discapacitado (PRIORIDAD)", 
+            variable=passenger_type, 
+            value="disabled"
+        ).pack(anchor=tk.W)
+        
+        # Precio
+        price_frame = ttk.LabelFrame(main_frame, text="Precio Ofrecido", padding=10)
+        price_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        price_var = tk.DoubleVar(value=12.0)
+        price_spinbox = ttk.Spinbox(
+            price_frame, 
+            from_=5.0, 
+            to=50.0, 
+            increment=1.0, 
+            textvariable=price_var,
+            width=10
+        )
+        price_spinbox.pack(side=tk.LEFT)
+        ttk.Label(price_frame, text="S/").pack(side=tk.LEFT, padx=(5, 0))
+
+        # Botones
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X)
+        
+        def submit():
+            is_disabled = passenger_type.get() == "disabled"
+            try:
+                price = float(price_var.get())
+            except:
+                price = 12.0
+            
+            dialog.destroy()
+            
+            # Crear pasajero usando el behavior del coordinador
+            if hasattr(self.coordinator, 'behaviours'):
+                for behaviour in self.coordinator.behaviours:
+                    if hasattr(behaviour, '_create_new_passenger'):
+                        behaviour._create_new_passenger(is_disabled=is_disabled, price=price)
+                        break
+            
+            passenger_type_text = "DISCAPACITADO" if is_disabled else "NORMAL"
+            self.status_text.set(f"Pasajero {passenger_type_text} agregado (S/{price:.1f})")
+            logger.info(f"Manually added passenger: {passenger_type_text}, price: S/{price:.2f}")
+
+        def cancel():
+            dialog.destroy()
+
+        ttk.Button(button_frame, text="✅ Agregar", command=submit).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(button_frame, text="❌ Cancelar", command=cancel).pack(side=tk.RIGHT)
+        
         self.root.wait_window(dialog)
 
     def _reset_system(self):
