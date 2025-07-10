@@ -1,12 +1,5 @@
 from typing import Dict, List
-
-# Importación condicional de OR-Tools
-try:
-    from ortools.constraint_solver import pywrapcp
-    ORTOOLS_AVAILABLE = True
-except ImportError:
-    ORTOOLS_AVAILABLE = False
-    print("WARNING: OR-Tools not available. Install with: pip install ortools")
+from ortools.constraint_solver import pywrapcp
 
 from src.agent.libs.environment import GridPosition, PassengerInfo, PassengerState, TaxiInfo, TaxiState
 from src.config import config
@@ -35,11 +28,6 @@ class ConstraintSolver:
         
         Retorna: {taxi_id: passenger_id}
         """
-        
-        # Verificar que OR-Tools esté disponible
-        if not ORTOOLS_AVAILABLE:
-            logger.error("❌ OR-Tools not available! Install with: pip install ortools")
-            return {}
         
         logger.info(f"=== CONSTRAINT SOLVER START (OR-Tools Only) ===")
         logger.info(f"Available taxis: {len(taxis)}, Waiting passengers: {len(passengers)}")
@@ -70,6 +58,12 @@ class ConstraintSolver:
         Solver con distancia progresiva hasta encontrar solución
         """
         
+        # Analizar composición de pasajeros
+        disabled_count = sum(1 for p in passengers if self._passenger_is_disabled(p))
+        normal_count = len(passengers) - disabled_count
+        
+        logger.info(f"👥 Passenger analysis: {disabled_count} disabled, {normal_count} normal")
+        
         # Distancias a probar progresivamente
         distances_to_try = [25, 35, 50, 75, 100, 150, 999]
         
@@ -84,8 +78,6 @@ class ConstraintSolver:
             else:
                 logger.warning(f"❌ No solution with distance {max_distance}")
         
-        # Si llegamos aquí, OR-Tools no pudo encontrar solución
-        logger.error("🚨 OR-Tools failed to find any solution - no assignments possible")
         return {}
 
     def _solve_with_ortools(
@@ -161,8 +153,9 @@ class ConstraintSolver:
             
             logger.info(f"Feasible assignments: {feasible_count}")
             
-            # FUNCIÓN OBJETIVO: Minimizar costo total (solo si tenemos asignaciones factibles)
+            # FUNCIÓN OBJETIVO: Maximizar asignaciones y minimizar distancia
             cost_terms = []
+            assignment_incentive_terms = []  # Para incentivar asignaciones
             
             for i in range(n_taxis):
                 for j in range(n_passengers):
@@ -171,18 +164,29 @@ class ConstraintSolver:
                     distance = taxi.position.manhattan_distance(passenger.pickup_position)
                     
                     # Solo agregar costo si la asignación es factible
-                    if distance <= max_distance and taxi.current_passengers < taxi.capacity:
-                        # Costo base por distancia
+                    if (distance <= max_distance and 
+                        taxi.current_passengers < taxi.capacity and
+                        passenger.assigned_taxi_id is None):
+                        
+                        # INCENTIVO DE ASIGNACIÓN: Gran bonus negativo por cada asignación
+                        assignment_bonus = -10000  # Gran incentivo por hacer asignaciones
+                        
+                        # COSTO DE DISTANCIA: Penalizar distancia (pero menos que el bonus de asignación)
                         distance_cost = distance * self.distance_weight
                         
-                        # Gran descuento para pasajeros discapacitados (prioridad máxima)
+                        # PRIORIDAD DE DISCAPACIDAD: Bonus adicional para discapacitados
                         disability_bonus = 0
                         if self._passenger_is_disabled(passenger):
-                            disability_bonus = -self.disability_priority  # Descuento enorme
+                            disability_bonus = -self.disability_priority  # Bonus adicional para discapacitados
                             logger.debug(f"Disabled passenger {passenger.passenger_id}: applying priority bonus")
                         
-                        total_cost = distance_cost + disability_bonus
+                        # COSTO TOTAL: assignment_bonus (siempre negativo) + distance_cost (positivo) + disability_bonus (negativo para discapacitados)
+                        total_cost = assignment_bonus + distance_cost + disability_bonus
                         cost_terms.append(assignment[i][j] * total_cost)
+                        
+                        logger.debug(f"Cost calculation for taxi {taxi.taxi_id} -> passenger {passenger.passenger_id}: "
+                                   f"assignment_bonus={assignment_bonus}, distance_cost={distance_cost}, "
+                                   f"disability_bonus={disability_bonus}, total_cost={total_cost}")
             
             # Configurar búsqueda con estrategia más simple
             if cost_terms:
@@ -195,14 +199,7 @@ class ConstraintSolver:
                 )
                 solver.NewSearch(db, [objective])
             else:
-                logger.warning("No cost terms, using basic search")
-                # Búsqueda básica sin objetivo
-                db = solver.Phase(
-                    all_vars,
-                    solver.CHOOSE_MIN_SIZE_LOWEST_MIN,
-                    solver.ASSIGN_MIN_VALUE,
-                )
-                solver.NewSearch(db)
+                return {}
             
             # Extraer solución
             assignments = {}
@@ -232,17 +229,14 @@ class ConstraintSolver:
                                 
                                 # Verificar exclusividad ESTRICTA
                                 if passenger.passenger_id in assigned_passengers:
-                                    logger.error(f"❌ CRITICAL ERROR: DUPLICATE PASSENGER ASSIGNMENT: {passenger.passenger_id}")
                                     logger.error(f"   This violates the exclusivity constraint!")
                                     continue
                                 if taxi.taxi_id in assigned_taxis:
-                                    logger.error(f"❌ CRITICAL ERROR: DUPLICATE TAXI ASSIGNMENT: {taxi.taxi_id}")
                                     logger.error(f"   This violates the exclusivity constraint!")
                                     continue
                                 
                                 # Verificar que el pasajero no esté ya asignado a otro taxi
                                 if passenger.assigned_taxi_id and passenger.assigned_taxi_id != taxi.taxi_id:
-                                    logger.error(f"❌ ASSIGNMENT CONFLICT: Passenger {passenger.passenger_id} already assigned to {passenger.assigned_taxi_id}, trying to assign to {taxi.taxi_id}")
                                     continue
                                 
                                 distance = taxi.position.manhattan_distance(passenger.pickup_position)
@@ -272,11 +266,9 @@ class ConstraintSolver:
                     passengers_in_assignments = list(temp_assignments.values())
                     
                     if len(taxis_in_assignments) != len(set(taxis_in_assignments)):
-                        logger.error("❌ FINAL VALIDATION FAILED: Duplicate taxis in assignments!")
                         continue
                         
                     if len(passengers_in_assignments) != len(set(passengers_in_assignments)):
-                        logger.error("❌ FINAL VALIDATION FAILED: Duplicate passengers in assignments!")
                         continue
                     
                     logger.info(f"✅ FINAL VALIDATION PASSED: {extracted_count} exclusive assignments confirmed")
@@ -284,11 +276,6 @@ class ConstraintSolver:
                     break
                 else:
                     logger.warning(f"Solution #{solutions_found} extracted 0 assignments, trying next...")
-            
-            if solutions_found == 0:
-                logger.warning("❌ No OR-Tools solution found")
-            elif len(assignments) == 0:
-                logger.warning(f"❌ OR-Tools found {solutions_found} solutions but extracted 0 assignments!")
             
             solver.EndSearch()
             return assignments
