@@ -3,7 +3,6 @@ from src.utils.logger import logger
 from typing import Dict, List, Optional, Any
 from src.config import config
 
-
 class OpenfireAPI:
     """REST API client for Openfire XMPP server"""
 
@@ -14,8 +13,9 @@ class OpenfireAPI:
         self.headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Authorization": "6G4ee93oOJEc5ccE",
+            "Authorization": "kbouvs6HP4UcMiQs",
         }
+        
 
     def create_user(
         self,
@@ -84,15 +84,15 @@ class OpenfireAPI:
             logger.error(f"Exception getting user {username}: {e}")
             return None
 
-    def list_users(self) -> List[Dict[str, Any]]:
-        """List all users"""
+    def list_users(self) -> List[str]:
+        """Return list of usernames only."""
         url = f"{self.base_url}/users"
 
         try:
-            response = requests.get(url)
+            response = requests.get(url, headers=self.headers)
             if response.status_code == 200:
                 data = response.json()
-                return data.get("users", [])
+                return [user.get("username") for user in data.get("user", [])]
             else:
                 logger.error(f"Failed to list users: {response.status_code}")
                 return []
@@ -161,7 +161,6 @@ class OpenfireAPI:
         except Exception as e:
             logger.error(f"Openfire health check failed: {e}")
             return False
-
 
 # Global API instance
 openfire_api = OpenfireAPI()

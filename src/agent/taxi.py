@@ -325,7 +325,7 @@ class TaxiAgent(Agent):
             # Get info of the grid from the coordinator
             agent: "TaxiAgent" = self.agent  # type: ignore
             if not agent.grid:
-                logger.info(f"Sending request for grid info { COORDINATOR_JID}")
+                #logger.info(f"Sending request for grid info { COORDINATOR_JID}")
                 msg = Message(to=COORDINATOR_JID)
                 msg.set_metadata("performative", "request") # FIPA
                 msg.set_metadata("type", "get_grid_info")
@@ -333,7 +333,7 @@ class TaxiAgent(Agent):
                 await self.send(msg)
 
             if not agent.info:
-                logger.info(f"Sending request for taxi info { COORDINATOR_JID}")
+                #logger.info(f"Sending request for taxi info { COORDINATOR_JID}")
                 msg = Message(to=COORDINATOR_JID)
                 msg.set_metadata("performative", "request") # FIPA
                 msg.set_metadata("type", "get_taxi_info")

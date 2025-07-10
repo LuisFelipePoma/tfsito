@@ -5,6 +5,7 @@ from src.config import config
 from src.utils.logger import logger
 from src.agent.coordinator import launch_agent_coordinator
 from src.agent.taxi import launch_agent_taxi
+from src.services.openfire_api import openfire_api
 
 def main():
     """Main entry point"""
@@ -41,6 +42,10 @@ def main():
             result = spade.run(launch_agent_taxi(args.agent_count))
             sys.exit(result)
         else:
+            users = openfire_api.list_users()
+            for user in users:
+                if user != "admin":
+                    openfire_api.delete_user(user)
             launch_agent_coordinator()
     except KeyboardInterrupt:
         print("\nShutdown requested by user")
