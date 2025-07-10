@@ -47,6 +47,9 @@ class GridTaxiGUI:
 
         self._setup_gui()
         self._start_update_thread()
+        
+        # Actualizar estadísticas iniciales
+        self._update_stats()
 
         logger.info("GUI initialized")
 
@@ -154,10 +157,7 @@ class GridTaxiGUI:
             controls_frame, text="⏹️ Detener Sistema", command=self._stop_system
         ).pack(fill=tk.X, pady=2)
         ttk.Button(
-            controls_frame, text="👤 Agregar Pasajero", command=self._add_passenger
-        ).pack(fill=tk.X, pady=2)
-        ttk.Button(
-            controls_frame, text="🔄 Reset Sistema", command=self._reset_system
+            controls_frame, text=" Reset Sistema", command=self._reset_system
         ).pack(fill=tk.X, pady=2)
 
         # Leyenda
@@ -439,101 +439,9 @@ class GridTaxiGUI:
         """Detiene el sistema"""
         self.running = False
         self.status_text.set("Sistema detenido")
+        # Actualizar estadísticas para reflejar que el sistema se detuvo
+        self._update_stats()
         logger.info("System stopped")
-
-    def _add_passenger(self):
-        """Agrega un nuevo pasajero: normal o discapacitado"""
-        if not self.coordinator:
-            messagebox.showwarning("Sistema", "Inicie el sistema primero")
-            return
-            
-        # Diálogo simplificado para agregar pasajero
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Agregar Pasajero")
-        dialog.geometry("320x180")
-        dialog.resizable(False, False)
-        
-        # Centrar el diálogo
-        dialog.transient(self.root)
-        dialog.grab_set()
-        
-        main_frame = ttk.Frame(dialog, padding=15)
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # Título
-        ttk.Label(
-            main_frame, 
-            text="Agregar Nuevo Pasajero", 
-            font=("Arial", 12, "bold")
-        ).pack(pady=(0, 15))
-        
-        # Tipo de pasajero
-        type_frame = ttk.LabelFrame(main_frame, text="Tipo de Pasajero", padding=10)
-        type_frame.pack(fill=tk.X, pady=(0, 10))
-        
-        passenger_type = tk.StringVar(value="normal")
-        
-        ttk.Radiobutton(
-            type_frame, 
-            text="👤 Normal", 
-            variable=passenger_type, 
-            value="normal"
-        ).pack(anchor=tk.W)
-        
-        ttk.Radiobutton(
-            type_frame, 
-            text="♿ Discapacitado (PRIORIDAD)", 
-            variable=passenger_type, 
-            value="disabled"
-        ).pack(anchor=tk.W)
-        
-        # Precio
-        price_frame = ttk.LabelFrame(main_frame, text="Precio Ofrecido", padding=10)
-        price_frame.pack(fill=tk.X, pady=(0, 15))
-        
-        price_var = tk.DoubleVar(value=12.0)
-        price_spinbox = ttk.Spinbox(
-            price_frame, 
-            from_=5.0, 
-            to=50.0, 
-            increment=1.0, 
-            textvariable=price_var,
-            width=10
-        )
-        price_spinbox.pack(side=tk.LEFT)
-        ttk.Label(price_frame, text="S/").pack(side=tk.LEFT, padx=(5, 0))
-
-        # Botones
-        button_frame = ttk.Frame(main_frame)
-        button_frame.pack(fill=tk.X)
-        
-        def submit():
-            is_disabled = passenger_type.get() == "disabled"
-            try:
-                price = float(price_var.get())
-            except:
-                price = 12.0
-            
-            dialog.destroy()
-            
-            # Crear pasajero usando el behavior del coordinador
-            if hasattr(self.coordinator, 'behaviours'):
-                for behaviour in self.coordinator.behaviours:
-                    if hasattr(behaviour, '_create_new_passenger'):
-                        behaviour._create_new_passenger(is_disabled=is_disabled, price=price)
-                        break
-            
-            passenger_type_text = "DISCAPACITADO" if is_disabled else "NORMAL"
-            self.status_text.set(f"Pasajero {passenger_type_text} agregado (S/{price:.1f})")
-            logger.info(f"Manually added passenger: {passenger_type_text}, price: S/{price:.2f}")
-
-        def cancel():
-            dialog.destroy()
-
-        ttk.Button(button_frame, text="✅ Agregar", command=submit).pack(side=tk.RIGHT, padx=(5, 0))
-        ttk.Button(button_frame, text="❌ Cancelar", command=cancel).pack(side=tk.RIGHT)
-        
-        self.root.wait_window(dialog)
 
     def _reset_system(self):
         """Reinicia el sistema"""
@@ -588,18 +496,18 @@ class GridTaxiGUI:
 
             self.status_text.set("Sistema activo - Agentes conectados")
 
-            # Loop principal
+            # Loop principal con actualización de estadísticas
             last_update = time.time()
+            last_stats_update = time.time()
+            
             while self.running:
                 current_time = time.time()
                 dt = current_time - last_update
 
-                # Actualizar tiempos de espera
-                # if self.coordinator:
-                #     self.coordinator.update_passenger_wait_times(dt)
-
-                # Actualizar estadísticas
-                # self._update_stats()
+                # Actualizar estadísticas cada segundo
+                if current_time - last_stats_update >= 1.0:
+                    self.root.after(0, self._update_stats)  # Ejecutar en hilo principal
+                    last_stats_update = current_time
 
                 last_update = current_time
                 await asyncio.sleep(0.05)  # 20 FPS
@@ -625,16 +533,55 @@ class GridTaxiGUI:
 
     def _update_stats(self):
         """Actualiza estadísticas de la GUI"""
-        if self.coordinator:
-            waiting = sum(
-                1
-                for p in self.coordinator.passengers.values()
-                if p.state == PassengerState.WAITING
-            )
-
-            self.taxi_count.set(str(len(self.coordinator.taxis)))
-            self.passenger_count.set(str(len(self.coordinator.passengers)))
-            self.waiting_passengers.set(str(waiting))
+        try:
+            if self.coordinator and hasattr(self.coordinator, 'taxis') and hasattr(self.coordinator, 'passengers'):
+                # Contar taxis activos
+                taxi_count = len(self.coordinator.taxis) if self.coordinator.taxis else 0
+                
+                # Contar pasajeros totales
+                passenger_count = len(self.coordinator.passengers) if self.coordinator.passengers else 0
+                
+                # Contar pasajeros esperando
+                waiting_count = 0
+                if self.coordinator.passengers:
+                    for passenger in self.coordinator.passengers.values():
+                        try:
+                            if hasattr(passenger, 'state'):
+                                if passenger.state == PassengerState.WAITING:
+                                    waiting_count += 1
+                            elif isinstance(passenger, dict) and passenger.get('state') == 'WAITING':
+                                waiting_count += 1
+                        except:
+                            continue
+                
+                # Actualizar variables de la GUI
+                self.taxi_count.set(str(taxi_count))
+                self.passenger_count.set(str(passenger_count))
+                self.waiting_passengers.set(str(waiting_count))
+                
+                # Actualizar estado del solver
+                if self.running:
+                    self.solver_type.set("OR-Tools Activo")
+                else:
+                    self.solver_type.set("OR-Tools Inactivo")
+                
+            else:
+                # Sistema no iniciado o sin datos
+                self.taxi_count.set("0")
+                self.passenger_count.set("0")
+                self.waiting_passengers.set("0")
+                if self.running:
+                    self.solver_type.set("Iniciando...")
+                else:
+                    self.solver_type.set("Sistema Detenido")
+                    
+        except Exception as e:
+            logger.error(f"Error updating stats: {e}")
+            # Valores por defecto en caso de error
+            self.taxi_count.set("--")
+            self.passenger_count.set("--")
+            self.waiting_passengers.set("--")
+            self.solver_type.set("Error")
 
     def _update_clock(self):
         """Actualiza el reloj"""
@@ -648,12 +595,26 @@ class GridTaxiGUI:
         """Inicia hilo de actualización visual"""
 
         def update_loop():
+            last_stats_update = time.time()
             while True:
                 try:
-                    if self.running:
-                        # Programar actualización en hilo principal
+                    current_time = time.time()
+                    
+                    if self.running and self.coordinator:
+                        # Programar actualización visual en hilo principal
                         self.root.after(0, self._draw_entities)
-                    time.sleep(1 / config.fps)  # 20 FPS
+                        
+                        # También actualizar estadísticas cada segundo
+                        if current_time - last_stats_update >= 1.0:
+                            self.root.after(0, self._update_stats)
+                            last_stats_update = current_time
+                    else:
+                        # Actualizar estadísticas incluso cuando no está corriendo
+                        if current_time - last_stats_update >= 2.0:
+                            self.root.after(0, self._update_stats)
+                            last_stats_update = current_time
+                    
+                    time.sleep(1 / config.fps)  # 20 FPS para visualización
                 except Exception as e:
                     logger.error(f"Update thread error: {e}")
                     time.sleep(1)
