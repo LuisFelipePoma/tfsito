@@ -14,7 +14,7 @@ class OpenfireAPI:
         self.headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "Authorization": "6G4ee93oOJEc5ccE",
+            "Authorization": "mgFDd7296jiI8Jf7",
         }
 
     def create_user(

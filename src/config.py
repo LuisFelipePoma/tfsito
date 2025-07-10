@@ -14,12 +14,12 @@ class TaxiSystemConfig:
     openfire_admin_user: str = "admin"
     openfire_admin_password: str = "123"
     openfire_domain: str = "localhost"
-    openfire_container: str = "87acef27b664" # Docker container ID
+    openfire_container: str = "0464e43aaab5" # Docker container ID
     openfire_xmpp_port: int = 5222
     
     # Grid Configuration
-    grid_width: int = 20
-    grid_height: int = 20
+    grid_width: int = 30
+    grid_height: int = 30
     
     # System Parameters
     num_taxis: int = 3
@@ -31,7 +31,7 @@ class TaxiSystemConfig:
     taxi_speed: float = 1.0  # cells per update
     passenger_spawn_rate: float = 0.1  # probability per update
     status_report_interval: float = 1.0  # seconds
-    movement_update_interval: float = 0.5  # seconds
+    movement_update_interval: float = 1.0  # seconds
     
     # Constraints
     max_pickup_distance: int = 15

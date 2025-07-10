@@ -19,6 +19,7 @@ from src.taxi_dispatch_gui import launch_taxi_gui
 from src.utils.logger import logger
 from src.config import config
 
+
 # ==================== COORDINATOR AGENT ====================
 class CoordinatorAgent(Agent):
     """Agente coordinador que maneja asignaciones"""
@@ -35,27 +36,28 @@ class CoordinatorAgent(Agent):
 
     async def setup(self):
         """Configuración inicial del coordinador"""
-        
+
         logger.info("Setting up coordinator agent")
 
         # Comportamiento de asignación - más frecuente para respuesta rápida
-        assignment_behaviour = self.AssignmentBehaviour(period=config.assignment_interval)
+        assignment_behaviour = self.AssignmentBehaviour(
+            period=config.assignment_interval
+        )
         self.add_behaviour(assignment_behaviour)
 
         # Comportamiento de comunicación
         comm_behaviour = self.CommunicationBehaviour()
         self.add_behaviour(comm_behaviour)
-        
+
         # Comportamiento de logica de pasajeros
         passengers_behaviour = self.PassengersBehaviour()
         self.add_behaviour(passengers_behaviour)
-
 
     class AssignmentBehaviour(PeriodicBehaviour):
         """Maneja las asignaciones usando constraint programming"""
 
         async def run(self):
-            coordinator = self.agent
+            coordinator: "CoordinatorAgent" = self.agent  # type: ignore
 
             if not coordinator.taxis or not coordinator.passengers:
                 return
@@ -74,14 +76,16 @@ class CoordinatorAgent(Agent):
             # Resolver asignaciones
             assignments = coordinator.solver.solve_assignment(taxi_list, passenger_list)
 
+            logger.info(f"Assignments found: {assignments}")
+
             # Enviar asignaciones a taxis
             for taxi_id, passenger_id in assignments.items():
                 await self._send_assignment_message(taxi_id, passenger_id)
 
         async def _send_assignment_message(self, taxi_id: str, passenger_id: str):
             """Envía mensaje de asignación a un taxi (desde el comportamiento)"""
-            
-            coordinator = self.agent
+
+            coordinator: "CoordinatorAgent" = self.agent  # type: ignore
 
             if passenger_id not in coordinator.passengers:
                 logger.warning(f"Passenger {passenger_id} not found for assignment")
@@ -90,7 +94,7 @@ class CoordinatorAgent(Agent):
             passenger = coordinator.passengers[passenger_id]
 
             # Construir JID del taxi correctamente
-            taxi_jid = f"{taxi_id}@{config.openfire_domain}"
+            taxi_jid = f"{taxi_id}@{config.openfire_container}"
 
             msg = Message(to=taxi_jid)
             msg.set_metadata("performative", "inform")
@@ -110,7 +114,9 @@ class CoordinatorAgent(Agent):
             # Marcar asignación pendiente
             passenger.assigned_taxi_id = taxi_id
 
-            logger.info(f"Sent assignment: {taxi_id} -> {passenger_id} at ({passenger.pickup_position.x}, {passenger.pickup_position.y}) -> ({passenger.dropoff_position.x}, {passenger.dropoff_position.y})")
+            logger.info(
+                f"Sent assignment: {taxi_id} -> {passenger_id} at ({passenger.pickup_position.x}, {passenger.pickup_position.y}) -> ({passenger.dropoff_position.x}, {passenger.dropoff_position.y})"
+            )
 
     class CommunicationBehaviour(CyclicBehaviour):
         """Maneja comunicación con taxis"""
@@ -126,7 +132,8 @@ class CoordinatorAgent(Agent):
 
         async def _handle_request(self, msg: Message):
             """Maneja mensajes de request"""
-            
+            coordinator: "CoordinatorAgent" = self.agent  # type: ignore
+
             if not msg:
                 return
             try:
@@ -139,26 +146,31 @@ class CoordinatorAgent(Agent):
                     response = Message(to=msg.sender)
                     response.set_metadata("performative", "inform")
                     response.set_metadata("type", "grid_info")
-                    response.body = json.dumps(self.agent.grid.to_dict())  # Asegúrate de que grid tenga método to_dict()
+                    response.body = json.dumps(
+                        coordinator.grid.to_dict()
+                    )  # Asegúrate de que grid tenga método to_dict()
                     await self.send(response)
-                    
+
                 if msg_type == "get_taxi_info":
                     # Responder con información del taxi
                     logger.info("Sending taxi information to client")
                     response = Message(to=msg.sender)
                     response.set_metadata("performative", "inform")
                     response.set_metadata("type", "taxi_info")
-                    response.body = json.dumps(self.agent.taxis.get(msg.body, {}).to_dict())
+                    response.body = json.dumps(
+                        coordinator.taxis.get(msg.body, {}).to_dict() # type: ignore
+                    )
                     await self.send(response)
 
             except Exception as e:
                 logger.error(f"Error handling request in coordinator: {e}")
                 logger.error(f"Message body: {msg.body}")
                 logger.error(f"Message metadata: {msg.metadata}")
-            
+
         async def _handle_message(self, msg: Message):
             """Maneja mensajes de taxis"""
-            
+            coordinator: "CoordinatorAgent" = self.agent  # type: ignore
+
             if not msg or not msg.body:
                 logger.warning("Coordinator received empty message")
                 return
@@ -173,14 +185,18 @@ class CoordinatorAgent(Agent):
                     # Convertir datos JSON a objetos apropiados
                     position_data = data.get("position", {})
                     if isinstance(position_data, dict):
-                        position = GridPosition(position_data.get("x", 0), position_data.get("y", 0))
+                        position = GridPosition(
+                            position_data.get("x", 0), position_data.get("y", 0)
+                        )
                     else:
                         position = GridPosition(0, 0)
 
                     target_position = None
                     target_data = data.get("target_position")
                     if target_data and isinstance(target_data, dict):
-                        target_position = GridPosition(target_data.get("x", 0), target_data.get("y", 0))
+                        target_position = GridPosition(
+                            target_data.get("x", 0), target_data.get("y", 0)
+                        )
 
                     # Convertir estado de string a enum
                     state_str = data.get("state", "IDLE")
@@ -201,7 +217,7 @@ class CoordinatorAgent(Agent):
                         speed=data.get("speed", 1.0),
                     )
 
-                    self.agent.taxis[taxi_info.taxi_id] = taxi_info
+                    coordinator.taxis[taxi_info.taxi_id] = taxi_info
 
                 elif msg_type == "passenger_picked_up":
                     # Taxi notifica que recogió pasajero
@@ -209,31 +225,32 @@ class CoordinatorAgent(Agent):
                     taxi_id = data.get("taxi_id")
                     if taxi_id:
                         # Buscar pasajero asignado a este taxi
-                        for p in self.agent.passengers.values():
+                        for p in coordinator.passengers.values():
                             if (
                                 p.assigned_taxi_id == taxi_id
                                 and p.state == PassengerState.WAITING
                             ):
                                 p.state = PassengerState.PICKED_UP
-                                logger.info(f"Passenger {p.passenger_id} picked up by taxi {taxi_id}")
+                                logger.info(
+                                    f"Passenger {p.passenger_id} picked up by taxi {taxi_id}"
+                                )
                                 break
 
                 elif msg_type == "passenger_delivered":
                     # Pasajero entregado, crear nuevo pasajero
                     data = json.loads(msg.body)
                     passenger_id = data.get("passenger_id")
-                    if passenger_id and passenger_id in self.agent.passengers:
-                        self.agent.passengers[passenger_id].state = (
+                    if passenger_id and passenger_id in coordinator.passengers:
+                        coordinator.passengers[passenger_id].state = (
                             PassengerState.DELIVERED
                         )
-                        del self.agent.passengers[passenger_id]
+                        del coordinator.passengers[passenger_id]
                         logger.info(f"Passenger {passenger_id} delivered successfully")
 
             except Exception as e:
                 logger.error(f"Error handling message in coordinator: {e}")
                 logger.error(f"Message body: {msg.body}")
                 logger.error(f"Message metadata: {msg.metadata}")
-
 
     class PassengersBehaviour(CyclicBehaviour):
         async def run(self):
@@ -255,18 +272,20 @@ class CoordinatorAgent(Agent):
             price=10.0,
         ):
             """Crea un nuevo pasajero con opciones de discapacidad y precio"""
-            passenger_id = f"P{self.agent.passenger_counter}"
-            self.agent.passenger_counter += 1
+            coordinator: "CoordinatorAgent" = self.agent  # type: ignore
+
+            passenger_id = f"P{coordinator.passenger_counter}"
+            coordinator.passenger_counter += 1
 
             # Generar posiciones aleatorias con distancia mínima
-            pickup = self.agent.grid.get_random_intersection()
-            dropoff = self.agent.grid.get_random_intersection()
+            pickup = coordinator.grid.get_random_intersection()
+            dropoff = coordinator.grid.get_random_intersection()
 
             # Asegurar distancia mínima entre pickup y dropoff
             max_attempts = 10
             attempts = 0
             while pickup.manhattan_distance(dropoff) < 5 and attempts < max_attempts:
-                dropoff = self.agent.grid.get_random_intersection()
+                dropoff = coordinator.grid.get_random_intersection()
                 attempts += 1
 
             # Determinar prioridades y precio aleatorio
@@ -298,7 +317,7 @@ class CoordinatorAgent(Agent):
                 price=price,
             )
 
-            self.agent.passengers[passenger_id] = passenger
+            coordinator.passengers[passenger_id] = passenger
 
             # Log detallado
             priorities = []
@@ -312,13 +331,17 @@ class CoordinatorAgent(Agent):
                 priorities.append("PREGNANT")
 
             priority_str = f" [{', '.join(priorities)}]" if priorities else ""
-            logger.info(f"Created passenger {passenger_id}{priority_str} at ({pickup.x}, {pickup.y}) -> ({dropoff.x}, {dropoff.y}), price: S/{price:.2f}")
+            logger.info(
+                f"Created passenger {passenger_id}{priority_str} at ({pickup.x}, {pickup.y}) -> ({dropoff.x}, {dropoff.y}), price: S/{price:.2f}"
+            )
 
             return passenger
 
         def update_passenger_wait_times(self, dt: float):
             """Actualiza tiempos de espera de pasajeros"""
-            for passenger in self.agent.passengers.values():
+            coordinator: "CoordinatorAgent" = self.agent  # type: ignore
+
+            for passenger in coordinator.passengers.values():
                 if passenger.state == PassengerState.WAITING:
                     passenger.wait_time += dt
 
@@ -326,7 +349,7 @@ class CoordinatorAgent(Agent):
 ## LAUNCHER
 def launch_agent_coordinator():
     """Función principal del sistema"""
-    
+
     print("🚕 Sistema de Taxis con Constraint Programming")
     print("=" * 50)
 

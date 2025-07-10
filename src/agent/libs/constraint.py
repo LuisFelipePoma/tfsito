@@ -18,6 +18,13 @@ class ConstraintSolver:
         Resuelve el problema de asignación taxi-pasajero
         Retorna: {taxi_id: passenger_id}
         """
+        
+        logger.critical("Solving assignment with realistic constraints")
+        logger.info(f"Available taxis: {len(taxis)}, Waiting passengers: {len(passengers)}")
+        # print positions of taxis and passengers
+        logger.info("Taxis positions: " + ", ".join([f"{t.taxi_id}: {t.position}" for t in taxis]))
+        logger.info("Passengers positions: " + ", ".join([f"{p.passenger_id}: {p.pickup_position}" for p in passengers]))
+        
         available_taxis = [t for t in taxis if t.state == TaxiState.IDLE]
         waiting_passengers = [
             p for p in passengers if p.state == PassengerState.WAITING
@@ -27,15 +34,20 @@ class ConstraintSolver:
         logger.info(
             f"Solving assignment: {len(available_taxis)} taxis, {len(waiting_passengers)} passengers"
         )
-        try:
-            return self._solve_with_ortools_realistic(
+        return self._greedy_fallback_realistic(
                 available_taxis, waiting_passengers
             )
-        except Exception as e:
-            logger.warning(f"OR-Tools failed, using fallback: {e}")
-            return self._greedy_fallback_realistic(
-                available_taxis, waiting_passengers
-            )
+        
+        #! SOVEROOO FIX THIS SHIT
+        # try:
+        #     return self._solve_with_ortools_realistic(
+        #         available_taxis, waiting_passengers
+        #     )
+        # except Exception as e:
+        #     logger.warning(f"OR-Tools failed, using fallback: {e}")
+        #     return self._greedy_fallback_realistic(
+        #         available_taxis, waiting_passengers
+        #     )
 
     def _passenger_vulnerability(self, p: PassengerInfo) -> bool:
         return p.is_disabled or p.is_elderly or p.is_child or p.is_pregnant
@@ -91,10 +103,10 @@ class ConstraintSolver:
                 if distance > self.max_pickup_distance:
                     solver.Add(assignment[i][j] == 0)
         # Prioridad absoluta: vulnerables
-        for j in range(n_passengers):
-            passenger = passengers[j]
-            if self._passenger_vulnerability(passenger):
-                solver.Add(solver.Sum([assignment[i][j] for i in range(n_taxis)]) >= 1)
+        # for j in range(n_passengers):
+        #     passenger = passengers[j]
+        #     if self._passenger_vulnerability(passenger):
+        #         solver.Add(solver.Sum([assignment[i][j] for i in range(n_taxis)]) >= 1)
         # Función objetivo realista
         cost_terms = []
         for i in range(n_taxis):
