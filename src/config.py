@@ -1,45 +1,47 @@
 import os
 from dataclasses import dataclass
 
-@dataclass
-class SimulationConfig:
-    # Openfire Configuration
+@dataclass 
+class TaxiSystemConfig:
+    """Configuración del Sistema de Taxis con Constraint Programming"""
+    
+    #APP
+    host_name: str = "host"
+    
+    # OpenFire/XMPP Configuration
     openfire_host: str = "localhost"
     openfire_port: int = 9090
     openfire_admin_user: str = "admin"
-    openfire_admin_password: str = "123"  # Match docker-compose
+    openfire_admin_password: str = "123"
     openfire_domain: str = "localhost"
+    openfire_container: str = "4308c2e62815" # Docker container ID
     openfire_xmpp_port: int = 5222
     
-    # Simulation Parameters
-    grid_width: int = 50
-    grid_height: int = 50
-    max_resources_per_node: int = 100
-    resource_spawn_rate: float = 0.1
-    danger_zone_count: int = 10
-    initial_agent_health: int = 100
-    max_carry_capacity: int = 20
-    trust_threshold: float = 0.6
+    # Grid Configuration
+    grid_width: int = 30
+    grid_height: int = 30
     
-    # Agent Behavior
-    movement_cost: int = 1
-    resource_collection_rate: int = 5
-    health_decay_rate: int = 2
-    alliance_duration: int = 100  # simulation steps
+    # System Parameters
+    num_taxis: int = 3
+    initial_passengers: int = 4
+    taxi_capacity: int = 4
     
-    # Visualization
-    gui_width: int = 1200
-    gui_height: int = 800
-    grid_cell_size: int = 12
-    fps: int = 30
+    # Timing
+    assignment_interval: float = 2.0  # seconds
+    taxi_speed: float = 1.0  # cells per update
+    passenger_spawn_rate: float = 0.1  # probability per update
+    status_report_interval: float = 1.0  # seconds
+    movement_update_interval: float = 1.0  # seconds
     
-    # Distributed System
-    max_agents_per_host: int = 20
-    heartbeat_interval: float = 5.0
-    message_timeout: float = 10.0
-
-# Global configuration instance
-config = SimulationConfig()
+    # Constraints
+    max_pickup_distance: int = 15
+    wait_penalty_factor: float = 2.0
+    
+    # GUI Configuration
+    gui_width: int = 1000
+    gui_height: int = 700
+    grid_cell_size: int = 25
+    fps: int = 20
 
 def load_config_from_env():
     """Load configuration from environment variables"""
@@ -48,8 +50,14 @@ def load_config_from_env():
     config.openfire_admin_user = os.getenv("OPENFIRE_ADMIN_USER", config.openfire_admin_user)
     config.openfire_admin_password = os.getenv("OPENFIRE_ADMIN_PASSWORD", config.openfire_admin_password)
     config.openfire_domain = os.getenv("OPENFIRE_DOMAIN", config.openfire_domain)
+    config.openfire_container= os.getenv("OPENFIRE_CONTAINER", config.openfire_container)
     
+    config.host_name = os.getenv("HOST_NAME", config.openfire_domain)
     config.grid_width = int(os.getenv("GRID_WIDTH", str(config.grid_width)))
     config.grid_height = int(os.getenv("GRID_HEIGHT", str(config.grid_height)))
+    config.num_taxis = int(os.getenv("NUM_TAXIS", str(config.num_taxis)))
     
     return config
+
+# Global configuration instance
+config = TaxiSystemConfig()

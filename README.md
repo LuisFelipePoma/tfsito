@@ -1,54 +1,207 @@
-# Distributed Multi-Agent Simulation
+# Sistema de Despacho de Taxis Distribuido
 
-A comprehensive post-apocalyptic survival simulation using SPADE agents communicating via Openfire XMPP server, featuring constraint programming with OR-Tools and real-time visualization.
+Sistema completo y robusto de despacho de taxis con constraint programming, comunicación distribuida y visualización en tiempo real.
 
-## Features
+## 🚕 Características Principales
 
-- **Distributed Architecture**: Agents run across multiple hosts
-- **SPADE/XMPP Communication**: Real-time agent communication via Openfire
-- **Constraint Programming**: OR-Tools for intelligent decision making
-- **Dynamic Scaling**: REST API for runtime agent management
-- **Real-time Visualization**: Pygame-based GUI with live monitoring
-- **Advanced Behaviors**: Resource management, alliance formation, trust systems
+- **Constraint Programming**: Asignación óptima de taxis usando OR-Tools (con fallback greedy)
+- **Comunicación Distribuida**: Agentes SPADE/XMPP via OpenFire (opcional)
+- **Movimiento en Grilla**: Solo movimientos Manhattan (sin diagonales)
+- **GUI Completa**: Visualización en tiempo real con Tkinter
+- **Robusto y Modular**: Manejo de errores, logging, y fallbacks automáticos
+- **Sistema Autónomo**: Funciona sin dependencias externas
 
-## Quick Start
+## 🎯 Requisitos del Sistema
 
-### 1. Automated Setup (Recommended)
-```bash
-python setup.py
+### Mínimos (Sistema Base)
+- Python 3.7+
+- tkinter (incluido con Python)
+
+### Opcionales (Funcionalidad Avanzada)
+- OR-Tools: Optimización por constraint programming
+- SPADE: Comunicación distribuida entre agentes
+- OpenFire: Servidor XMPP para comunicación distribuida
+
+## 🚀 Inicio Rápido
+
+### Opción 1: Ejecutar Directamente (Windows)
+```cmd
+run_taxi_system.bat
 ```
-This will install dependencies, start Openfire, and guide you through configuration.
 
-### 2. Manual Setup
+### Opción 2: Ejecutar con Python
+```bash
+cd src
+python distributed_taxi_system.py
+```
 
-**Prerequisites:**
-- Python 3.8+
-- Docker & Docker Compose
-- Git
-
-**Install Dependencies:**
+### Opción 3: Instalar Dependencias Opcionales
 ```bash
 pip install -r requirements.txt
+cd src
+python distributed_taxi_system.py
 ```
 
-**Start Openfire:**
-```bash
-docker-compose up -d
+## 📋 Funcionalidades del Sistema
+
+### Sistema de Taxis
+- **3 taxis autónomos** con estados: Idle, Pickup, Dropoff
+- **Movimiento inteligente**: Patrullaje y asignaciones
+- **Capacidad configurable**: Máximo 4 pasajeros por taxi
+
+### Sistema de Pasajeros
+- **Generación dinámica**: Pasajeros aleatorios automáticos
+- **Gestión manual**: Clic en el mapa para añadir pasajeros
+- **Estados**: Esperando, En taxi, Entregado
+
+### Constraint Programming
+- **OR-Tools**: Asignación óptima considerando distancia y tiempo de espera
+- **Fallback Greedy**: Algoritmo alternativo si OR-Tools no está disponible
+- **Restricciones**: Capacidad, distancia máxima, disponibilidad
+
+### Interfaz Gráfica
+- **Mapa interactivo**: Grilla de 20x20 con zoom y scroll
+- **Visualización en tiempo real**: Taxis, pasajeros, rutas
+- **Controles**: Añadir pasajeros, pausar, reiniciar
+- **Estado del sistema**: Estadísticas en tiempo real
+
+## 🎮 Controles de la Interfaz
+
+### Botones
+- **Añadir Pasajero**: Genera un pasajero aleatorio
+- **Reiniciar Sistema**: Limpia y reinicia todo el sistema
+- **Pausar/Reanudar**: Control de la simulación
+
+### Interacción con el Mapa
+- **Clic en el mapa**: Añade un pasajero en esa posición
+- **Scroll**: Navegar por el mapa
+- **Zoom**: Usar las barras de desplazamiento
+
+### Leyenda de Colores
+- 🟢 **Verde**: Taxi libre (patrullando)
+- 🟡 **Amarillo**: Taxi recogiendo pasajero  
+- 🟠 **Naranja**: Taxi entregando pasajero
+- 🔴 **Rojo**: Pasajero esperando
+- 🟣 **Púrpura**: Pasajero en taxi
+
+## ⚙️ Configuración
+
+El sistema se puede configurar editando la clase `TaxiConfig` en `distributed_taxi_system.py`:
+
+```python
+@dataclass
+class TaxiConfig:
+    grid_width: int = 20           # Ancho de la grilla
+    grid_height: int = 20          # Alto de la grilla
+    num_taxis: int = 3             # Número de taxis
+    fps: int = 20                  # Frames por segundo
+    assignment_interval: float = 2.0  # Intervalo de asignación (segundos)
+    max_pickup_distance: int = 15  # Distancia máxima para pickup
 ```
 
-**Configure Openfire:**
-1. Open http://localhost:9090
-2. Complete setup wizard (domain: localhost)
-3. Create admin account: admin/admin123
-4. Install REST API plugin
-5. Enable REST API in plugin settings
+## 🏗️ Arquitectura del Sistema
 
-### 3. Run Examples
+### Componentes Principales
 
-**Basic Simulation:**
-```bash
-python examples/basic_example.py
+1. **GridNetwork**: Manejo de la grilla y pathfinding
+2. **ConstraintSolver**: Asignación óptima con OR-Tools/greedy
+3. **GridTaxi**: Entidad taxi con estado y movimiento
+4. **GridPassenger**: Entidad pasajero con tiempo de espera
+5. **TaxiSystemGUI**: Interfaz gráfica completa
+6. **DistributedTaxiSystem**: Sistema principal coordinador
+
+### Flujo de Datos
 ```
+Pasajeros → ConstraintSolver → Asignaciones → Taxis → Movimiento → GUI
+     ↑                                                             ↓
+     ←←←←←←←←←← Eventos (pickup, delivery) ←←←←←←←←←←←←←←←←←
+```
+
+## 🔧 Resolución de Problemas
+
+### OR-Tools no disponible
+- El sistema usará automáticamente el algoritmo greedy
+- Para instalar: `pip install ortools`
+
+### SPADE no disponible  
+- El sistema funcionará en modo local
+- Para instalar: `pip install spade`
+
+### Error de GUI
+- Verificar que tkinter esté instalado con Python
+- En Linux: `sudo apt-get install python3-tk`
+
+### Rendimiento lento
+- Reducir `fps` en la configuración
+- Reducir tamaño de grilla (`grid_width`, `grid_height`)
+
+## 📊 Logging y Monitoreo
+
+El sistema genera logs detallados en:
+- **Consola**: Información principal del sistema
+- **taxi_system.log**: Log completo con timestamps
+
+Niveles de logging:
+- INFO: Operaciones principales (asignaciones, entregas)
+- WARNING: Fallbacks y situaciones atípicas  
+- ERROR: Errores del sistema
+- DEBUG: Información detallada para desarrollo
+
+## 🧪 Testing
+
+Para probar el sistema:
+
+1. **Ejecutar el sistema**: `python distributed_taxi_system.py`
+2. **Añadir pasajeros**: Usar botón o clic en el mapa
+3. **Observar asignaciones**: Ver logs y visualización
+4. **Verificar entregas**: Contar pasajeros entregados
+
+## 🔮 Funcionalidades Futuras
+
+- [ ] Múltiples tipos de vehículos (taxi, bus, ambulancia)
+- [ ] Tráfico y congestión en las calles
+- [ ] Predicción de demanda con ML
+- [ ] API REST para control remoto
+- [ ] Métricas avanzadas y analytics
+- [ ] Modo multi-jugador distribuido
+
+## 📝 Notas Técnicas
+
+### Constraint Programming
+El sistema usa programación por restricciones para encontrar asignaciones óptimas:
+- **Variables**: Asignación taxi-pasajero (0/1)
+- **Restricciones**: Capacidad, distancia, disponibilidad
+- **Objetivo**: Minimizar costo total (distancia + tiempo de espera)
+
+### Movimiento Manhattan
+Todos los movimientos son estrictamente cardinales:
+- ✅ Norte, Sur, Este, Oeste
+- ❌ Diagonales no permitidas
+- 🛣️ Pathfinding simple y eficiente
+
+### Comunicación Distribuida
+Sistema modular para expansión a múltiples nodos:
+- **SPADE Agents**: Comunicación asíncrona
+- **OpenFire**: Servidor XMPP centralizado  
+- **Fallback**: Modo local si no hay comunicación
+
+## 👥 Contribuciones
+
+Para contribuir al proyecto:
+
+1. Fork del repositorio
+2. Crear rama de feature: `git checkout -b feature/nueva-funcionalidad`
+3. Commit cambios: `git commit -am 'Añadir nueva funcionalidad'`
+4. Push a la rama: `git push origin feature/nueva-funcionalidad`
+5. Crear Pull Request
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para detalles.
+
+---
+
+**Desarrollado como sistema de despacho de taxis inteligente con constraint programming y comunicación distribuida.**
 
 **Distributed Simulation:**
 ```bash
