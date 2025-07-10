@@ -1,478 +1,432 @@
-# Sistema de Despacho de Taxis Distribuido
+# Authors
+- Espíritu Cueva, Renzo Andree
+- Pilco Chiuyare, André Dario
+- Poma Astete, Luis Felipe
+- Sovero Cubillas, John Davids
 
-Sistema completo y robusto de despacho de taxis con constraint programming, comunicación distribuida y visualización en tiempo real.
+# 🚕 Distributed Multi-Agent Taxi Di## 📋 Table of Contents
+- [✨ Key Features](#-key-features)
+- [🏗️ System Architecture](#️-system-architecture)
+- [💻 Technology Stack](#-technology-stack)
+- [📦 Installation](#-installation)
+- [⚙️ Configuration](#️-configuration)
+- [🚀 Usage](#-usage)
+- [🧪 Performance Evaluation](#-performance-evaluation)
+- [🌐 Multi-Host Distribution](#-multi-host-distribution)
+- [📚 Project Documentation](#-project-documentation)
+- [🛠️ Development](#️-development)
+- [📊 Project Statistics](#-project-statistics)
 
-## 🚕 Características Principales
+## 📚 Quick Links
 
-- **Constraint Programming**: Asignación óptima de taxis usando OR-Tools (con fallback greedy)
-- **Comunicación Distribuida**: Agentes SPADE/XMPP via OpenFire (opcional)
-- **Movimiento en Grilla**: Solo movimientos Manhattan (sin diagonales)
-- **GUI Completa**: Visualización en tiempo real con Tkinter
-- **Robusto y Modular**: Manejo de errores, logging, y fallbacks automáticos
-- **Sistema Autónomo**: Funciona sin dependencias externas
+- 🚀 **[Quick Start Guide](QUICKSTART.md)** - Get running in 10 minutes
+- 🛠️ **[Development Guide](DEVELOPMENT.md)** - For developers and contributors
+- 📖 **[API Documentation](docs/API.md)** - Technical API reference
+- 🧪 **[Performance Tests](docs/PERFORMANCE.md)** - Benchmarking and evaluation
 
-## 🎯 Requisitos del Sistema
+## 💻 Technology Stack
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![SPADE](https://img.shields.io/badge/SPADE-3.2+-green.svg)](https://spade-mas.readthedocs.io/)
+[![OR-Tools](https://img.shields.io/badge/OR--Tools-9.5+-orange.svg)](https://developers.google.com/optimization)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### Mínimos (Sistema Base)
-- Python 3.7+
-- tkinter (incluido con Python)
+> **Final Project - Tópicos de Ciencias de la Computación 2025-1**  
+> **Universidad Peruana de Ciencias Aplicadas**
 
-### Opcionales (Funcionalidad Avanzada)
-- OR-Tools: Optimización por constraint programming
-- SPADE: Comunicación distribuida entre agentes
-- OpenFire: Servidor XMPP para comunicación distribuida
+A sophisticated **distributed multi-agent system** for intelligent taxi dispatching using **constraint programming** and **optimization** with **OR-Tools**. Built with the **SPADE framework** for scalable agent communication and deployment across multiple hosts.
 
-## 🚀 Inicio Rápido
+## ✨ Key Features
 
-### Opción 1: Ejecutar Directamente (Windows)
-```cmd
-run_taxi_system.bat
+### 🎯 **Core Capabilities**
+- ✅ **Distributed Multi-Agent Architecture** using SPADE framework
+- ✅ **Constraint Programming Optimization** with Google OR-Tools CP-SAT solver
+- ✅ **Horizontal Scalability** across multiple hosts and networks
+- ✅ **Real-time GUI Dashboard** with live statistics and visualization
+- ✅ **Fault Tolerance** with automatic reconnection and error recovery
+- ✅ **Performance Evaluation Suite** with automated limit testing
+
+### 🤖 **Intelligent Agents**
+- **TaxiAgent**: Autonomous taxi entities with independent decision-making
+- **CoordinatorAgent**: Central optimization engine managing global assignments
+- **XMPP Communication**: Robust messaging protocol via Openfire server
+- **Dynamic User Management**: Automatic creation and cleanup of XMPP users
+
+### 🧮 **Advanced Optimization**
+- **Constraint Programming**: Optimal taxi-passenger assignments
+- **Operational Constraints**: Maximum distance (15 cells), capacity (4 passengers)
+- **Objective Function**: Minimization of passenger waiting times
+- **Real-time Solving**: Reassignments every 2 seconds with sub-100ms response
+
+## 🏗️ System Architecture
+
+## 📋 Table of Contents
+
+- [✨ Key Features](#-key-features)
+- [🏗️ System Architecture](#️-system-architecture)
+- [💻 Technology Stack](#-technology-stack)
+- [📦 Installation](#-installation)
+- [⚙️ Configuration](#️-configuration)
+- [🚀 Usage](#-usage)
+- [🧪 Performance Evaluation](#-performance-evaluation)
+- [🌐 Multi-Host Distribution](#-multi-host-distribution)
+- [📚 Project Documentation](#-project-documentation)
+- [🛠️ Development](#️-development)
+- [📊 Project Statistics](#-project-statistics)
+
+## � Technology Stack
+
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| **Python** | 3.8+ | Primary development language |
+| **SPADE** | 3.2+ | Multi-agent system framework |
+| **OR-Tools** | 9.5+ | Constraint programming solver |
+| **Openfire** | 4.7+ | XMPP server for agent communication |
+| **Tkinter** | Built-in | Graphical user interface |
+| **Requests** | 2.28+ | REST API client |
+| **PSUtil** | 5.9+ | System monitoring |
+
+## 📦 Installation
+
 ```
-
-### Opción 2: Ejecutar con Python
-```bash
-cd src
-python distributed_taxi_system.py
+┌─────────────────────────────────────────────────────────────┐
+│                    Distributed System                      │
+├─────────────────────┬─────────────────────┬─────────────────┤
+│     Host 1          │     Host 2          │     Host N      │
+│  ┌─────────────┐    │  ┌─────────────┐    │  ┌─────────────┐│
+│  │ TaxiAgent 1 │    │  │ TaxiAgent N │    │  │ TaxiAgent X ││
+│  │ TaxiAgent 2 │    │  │ TaxiAgent N+1│   │  │ TaxiAgent Y ││
+│  │     ...     │    │  │     ...     │    │  │     ...     ││
+│  └─────────────┘    │  └─────────────┘    │  └─────────────┘│
+└─────────────────────┴─────────────────────┴─────────────────┘
+                              │
+                    ┌─────────────────────┐
+                    │   Openfire Server   │
+                    │    (XMPP/REST)      │
+                    └─────────────────────┘
+                              │
+                    ┌─────────────────────┐
+                    │  CoordinatorAgent   │
+                    │   + OR-Tools CPSat  │
+                    │   + GUI Dashboard   │
+                    └─────────────────────┘
 ```
-
-### Opción 3: Instalar Dependencias Opcionales
-```bash
-pip install -r requirements.txt
-cd src
-python distributed_taxi_system.py
-```
-
-## 📋 Funcionalidades del Sistema
-
-### Sistema de Taxis
-- **3 taxis autónomos** con estados: Idle, Pickup, Dropoff
-- **Movimiento inteligente**: Patrullaje y asignaciones
-- **Capacidad configurable**: Máximo 4 pasajeros por taxi
-
-### Sistema de Pasajeros
-- **Generación dinámica**: Pasajeros aleatorios automáticos
-- **Gestión manual**: Clic en el mapa para añadir pasajeros
-- **Estados**: Esperando, En taxi, Entregado
-
-### Constraint Programming
-- **OR-Tools**: Asignación óptima considerando distancia y tiempo de espera
-- **Fallback Greedy**: Algoritmo alternativo si OR-Tools no está disponible
-- **Restricciones**: Capacidad, distancia máxima, disponibilidad
-
-### Interfaz Gráfica
-- **Mapa interactivo**: Grilla de 20x20 con zoom y scroll
-- **Visualización en tiempo real**: Taxis, pasajeros, rutas
-- **Controles**: Añadir pasajeros, pausar, reiniciar
-- **Estado del sistema**: Estadísticas en tiempo real
-
-## 🎮 Controles de la Interfaz
-
-### Botones
-- **Añadir Pasajero**: Genera un pasajero aleatorio
-- **Reiniciar Sistema**: Limpia y reinicia todo el sistema
-- **Pausar/Reanudar**: Control de la simulación
-
-### Interacción con el Mapa
-- **Clic en el mapa**: Añade un pasajero en esa posición
-- **Scroll**: Navegar por el mapa
-- **Zoom**: Usar las barras de desplazamiento
-
-### Leyenda de Colores
-- 🟢 **Verde**: Taxi libre (patrullando)
-- 🟡 **Amarillo**: Taxi recogiendo pasajero  
-- 🟠 **Naranja**: Taxi entregando pasajero
-- 🔴 **Rojo**: Pasajero esperando
-- 🟣 **Púrpura**: Pasajero en taxi
-
-## ⚙️ Configuración
-
-El sistema se puede configurar editando la clase `TaxiConfig` en `distributed_taxi_system.py`:
-
-```python
-@dataclass
-class TaxiConfig:
-    grid_width: int = 20           # Ancho de la grilla
-    grid_height: int = 20          # Alto de la grilla
-    num_taxis: int = 3             # Número de taxis
-    fps: int = 20                  # Frames por segundo
-    assignment_interval: float = 2.0  # Intervalo de asignación (segundos)
-    max_pickup_distance: int = 15  # Distancia máxima para pickup
-```
-
-## 🏗️ Arquitectura del Sistema
-
-### Componentes Principales
-
-1. **GridNetwork**: Manejo de la grilla y pathfinding
-2. **ConstraintSolver**: Asignación óptima con OR-Tools/greedy
-3. **GridTaxi**: Entidad taxi con estado y movimiento
-4. **GridPassenger**: Entidad pasajero con tiempo de espera
-5. **TaxiSystemGUI**: Interfaz gráfica completa
-6. **DistributedTaxiSystem**: Sistema principal coordinador
-
-### Flujo de Datos
-```
-Pasajeros → ConstraintSolver → Asignaciones → Taxis → Movimiento → GUI
-     ↑                                                             ↓
-     ←←←←←←←←←← Eventos (pickup, delivery) ←←←←←←←←←←←←←←←←←
-```
-
-## 🔧 Resolución de Problemas
-
-### OR-Tools no disponible
-- El sistema usará automáticamente el algoritmo greedy
-- Para instalar: `pip install ortools`
-
-### SPADE no disponible  
-- El sistema funcionará en modo local
-- Para instalar: `pip install spade`
-
-### Error de GUI
-- Verificar que tkinter esté instalado con Python
-- En Linux: `sudo apt-get install python3-tk`
-
-### Rendimiento lento
-- Reducir `fps` en la configuración
-- Reducir tamaño de grilla (`grid_width`, `grid_height`)
-
-## 📊 Logging y Monitoreo
-
-El sistema genera logs detallados en:
-- **Consola**: Información principal del sistema
-- **taxi_system.log**: Log completo con timestamps
-
-Niveles de logging:
-- INFO: Operaciones principales (asignaciones, entregas)
-- WARNING: Fallbacks y situaciones atípicas  
-- ERROR: Errores del sistema
-- DEBUG: Información detallada para desarrollo
-
-## 🧪 Testing
-
-Para probar el sistema:
-
-1. **Ejecutar el sistema**: `python distributed_taxi_system.py`
-2. **Añadir pasajeros**: Usar botón o clic en el mapa
-3. **Observar asignaciones**: Ver logs y visualización
-4. **Verificar entregas**: Contar pasajeros entregados
-
-## 🔮 Funcionalidades Futuras
-
-- [ ] Múltiples tipos de vehículos (taxi, bus, ambulancia)
-- [ ] Tráfico y congestión en las calles
-- [ ] Predicción de demanda con ML
-- [ ] API REST para control remoto
-- [ ] Métricas avanzadas y analytics
-- [ ] Modo multi-jugador distribuido
-
-## 📝 Notas Técnicas
-
-### Constraint Programming
-El sistema usa programación por restricciones para encontrar asignaciones óptimas:
-- **Variables**: Asignación taxi-pasajero (0/1)
-- **Restricciones**: Capacidad, distancia, disponibilidad
-- **Objetivo**: Minimizar costo total (distancia + tiempo de espera)
-
-### Movimiento Manhattan
-Todos los movimientos son estrictamente cardinales:
-- ✅ Norte, Sur, Este, Oeste
-- ❌ Diagonales no permitidas
-- 🛣️ Pathfinding simple y eficiente
-
-### Comunicación Distribuida
-Sistema modular para expansión a múltiples nodos:
-- **SPADE Agents**: Comunicación asíncrona
-- **OpenFire**: Servidor XMPP centralizado  
-- **Fallback**: Modo local si no hay comunicación
-
-## 👥 Contribuciones
-
-Para contribuir al proyecto:
-
-1. Fork del repositorio
-2. Crear rama de feature: `git checkout -b feature/nueva-funcionalidad`
-3. Commit cambios: `git commit -am 'Añadir nueva funcionalidad'`
-4. Push a la rama: `git push origin feature/nueva-funcionalidad`
-5. Crear Pull Request
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para detalles.
-
----
-
-**Desarrollado como sistema de despacho de taxis inteligente con constraint programming y comunicación distribuida.**
-
-**Distributed Simulation:**
-```bash
-python examples/distributed_example.py
-```
-
-**Performance Testing:**
-```bash
-python examples/performance_test.py
-```
-
-## Usage
-
-### Running Agents
-
-**Single Host:**
-```bash
-# Terminal 1: Start agents
-python main.py --mode agent --host host1 --agent-count 5
-
-# Terminal 2: Start GUI monitor
-python main.py --mode gui
-```
-
-**Multiple Hosts:**
-```bash
-# Host 1
-python main.py --mode agent --host host1 --agent-count 10
-
-# Host 2
-python main.py --mode agent --host host2 --agent-count 10 --openfire-host <host1-ip>
-
-# Monitor (any host)
-python main.py --mode gui --openfire-host <host1-ip>
-```
-
-### GUI Controls
-- **Click**: Select agent for detailed info
-- **D**: Toggle danger zones
-- **R**: Toggle resources
-- **A**: Toggle alliance connections
-- **P**: Toggle movement paths
-- **ESC**: Exit
-
-## Architecture
 
 ### Core Components
-- **Environment**: World simulation and state management
-- **Agents**: SPADE-based autonomous survivors
-- **Constraints**: OR-Tools optimization for decisions
-- **Communication**: Openfire XMPP server integration
-- **GUI**: Real-time Pygame visualization
 
-### Agent Behaviors
-- **Survival**: Health management and resource consumption
-- **Exploration**: Intelligent movement and resource discovery
-- **Communication**: Message handling and information sharing
-- **Alliance**: Trust-based coalition formation
+#### 🚗 **Distributed Intelligent Agents (TaxiAgent)**
+TaxiAgents form the operational foundation of the system, where each taxi is modeled as an autonomous entity with:
+- **Autonomous state management**: Position, capacity, availability
+- **Local decision making**: Independent routing and behavior
+- **Asynchronous communication**: Status reporting to coordinator
+- **Distributed scalability**: Execution across multiple hosts
 
-### Constraint Programming
-- **Movement**: Avoid danger zones, minimize resource distance
-- **Resources**: Optimize allocation within carry capacity
-- **Alliances**: Trust-threshold based partner selection
-- **Conflicts**: Automated resolution strategies
+#### 🎮 **Central Coordinator Agent (CoordinatorAgent)**
+The CoordinatorAgent acts as the system's brain, managing:
+- **Global information**: State of all taxis and passengers
+- **Decision processing**: Assignments using constraint programming
+- **Graphical interface**: Real-time system visualization
+- **Performance metrics**: Monitoring and reporting
 
-## Configuration
+#### 🔧 **Constraint Programming Module**
+Specialized optimization system based on OR-Tools:
+- **Constraint modeling**: Maximum distance (15 cells), capacity (4 passengers)
+- **Objective function**: Minimization of waiting time with penalties
+- **CP-SAT Solver**: Optimal real-time resolution
+- **Dynamic reassignments**: Every 2 seconds based on conditions
 
-Key settings in `config.py`:
+#### 📡 **Multi-Agent Communication System**
+Distributed communication architecture with:
+- **SPADE Framework**: Agent development in Python
+- **XMPP Protocol**: Robust communication via Openfire
+- **Automatic management**: REST API for XMPP users
+- **Fault tolerance**: Automatic reconnection
 
-```python
-# World
-grid_width = 50
-grid_height = 50
-danger_zone_count = 10
+### Prerequisites
 
-# Agents  
-initial_agent_health = 100
-max_carry_capacity = 20
-trust_threshold = 0.6
+1. **Python 3.8 or higher**
+2. **Java 8+ (for Openfire)**
+3. **Git**
 
-# Communication
-openfire_host = "localhost"
-openfire_port = 9090
-```
+### Step 1: Clone Repository
 
-Environment variables:
-- `OPENFIRE_HOST`: Openfire server address
-- `OPENFIRE_PORT`: Openfire server port
-- `GRID_WIDTH/HEIGHT`: World dimensions
-
-## Examples
-
-### Basic Agent Creation
-```python
-from agent import create_agent
-from environment import environment
-
-# Start environment
-environment.start_simulation()
-
-# Create agent
-agent = await create_agent("survivor_001", "host1")
-
-# Monitor
-world_state = environment.get_world_state()
-```
-
-### Constraint Solving
-```python
-from constraints import constraint_solver, MovementConstraints
-
-constraints = MovementConstraints(
-    agent_id="agent_001",
-    current_position=Position(10, 10),
-    forbidden_zones=[Position(11, 11)],  # Danger
-    target_resources=[Position(15, 15)]   # Food
-)
-
-solution = constraint_solver.solve_movement_constraints(constraints)
-```
-
-### Alliance Formation
-```python
-# Agents evaluate potential allies based on trust
-alliance_id = environment.create_alliance(
-    leader_id="agent_001",
-    member_ids=["agent_002", "agent_003"]
-)
-```
-
-## Monitoring & Debugging
-
-### Logs
-- `simulation.log`: Comprehensive system logs
-- Console output: Real-time status updates
-
-### Performance Monitoring
-- Built-in FPS counter in GUI
-- Performance test suite in `examples/`
-- Memory and CPU usage tracking
-
-### Health Checks
-```python
-from openfire_api import openfire_api
-
-# Check Openfire status
-if openfire_api.health_check():
-    print("Openfire is running")
-
-# List online agents
-online_users = openfire_api.get_online_users()
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Openfire Connection Failed:**
 ```bash
-# Check container status
-docker-compose ps
-
-# View logs
-docker-compose logs openfire
+git clone https://github.com/your-username/taxi-dispatch-multiagent.git
+cd taxi-dispatch-multiagent
 ```
 
-**Agent Spawn Failures:**
-- Verify REST API plugin is installed
-- Check admin credentials
-- Ensure domain is configured correctly
+### Step 2: Create Virtual Environment
 
-**GUI Performance Issues:**
-- Reduce agent count (`--agent-count`)
-- Lower FPS in config
-- Decrease grid size
-
-**Memory Usage:**
-- Monitor with performance tests
-- Clean up dead agents
-- Limit event history
-
-**SPADE Agent 'send' Method Error:**
 ```bash
-# If you see: AttributeError: 'SurvivorAgent' object has no attribute 'send'
-# Run the agent fix test:
-python test_agent_fix.py
+python -m venv venv
 
-# This error has been fixed in the code - behaviors now use self.send() instead of agent.send()
+# Windows
+venv\Scripts\activate
+
+# Linux/Mac
+source venv/bin/activate
 ```
 
-**Missing Dependencies:**
-```bash
-# Install missing packages
-pip install spade
-pip install ortools
-pip install pygame
-pip install requests
+### Step 3: Install Dependencies
 
-# Or install all at once
+```bash
 pip install -r requirements.txt
 ```
 
-### Debug Commands
+### Step 4: Setup Openfire Server
+
+#### Installation
+
 ```bash
-# Check Openfire API
-curl -u admin:admin123 http://localhost:9090/plugins/restapi/v1/system/properties
-
-# View agent status
-python -c "from environment import environment; print(environment.get_world_state())"
-
-# Performance test
-python examples/performance_test.py
+# Windows: Download from https://www.igniterealtime.org/downloads/
+# Linux Ubuntu/Debian:
+wget https://www.igniterealtime.org/downloadServlet?filename=openfire/openfire_4_7_4.tar.gz
+tar -xzf openfire_4_7_4.tar.gz
 ```
 
-## Development
+#### Initial Configuration
+
+1. **Start Openfire**:
+   ```bash
+   # Windows: Run openfire.exe as administrator
+   # Linux:
+   cd openfire/bin
+   ./openfire start
+   ```
+
+2. **Configure via Web Console**:
+   - Navigate to: `http://localhost:9090`
+   - Follow setup wizard
+   - **Domain**: `localhost`
+   - **Admin**: User `admin`, Password `123`
+
+3. **Install REST API Plugin**:
+   - `Plugins` > `Available Plugins` > `REST API`
+   - Install and configure secret token
+
+## ⚙️ Configuration
+
+### Main Configuration File: `src/config.py`
+
+```python
+@dataclass 
+class TaxiSystemConfig:
+    # OpenFire/XMPP Configuration
+    openfire_host: str = "localhost"
+    openfire_port: int = 9090
+    openfire_admin_user: str = "admin"
+    openfire_admin_password: str = "123"
+    openfire_domain: str = "localhost"
+    
+    # Grid Configuration
+    grid_width: int = 30
+    grid_height: int = 30
+    
+    # System Parameters
+    num_taxis: int = 3
+    initial_passengers: int = 4
+    taxi_capacity: int = 4
+    
+    # Timing
+    assignment_interval: float = 2.0
+    taxi_speed: float = 1.0
+    
+    # Constraints
+    max_pickup_distance: int = 15
+    wait_penalty_factor: float = 2.0
+```
+
+### REST API Authentication Token
+
+Configure in `src/services/openfire_api.py`:
+
+```python
+self.headers = {
+    "Authorization": "YOUR_SECRET_TOKEN_HERE"
+}
+```
+
+> 💡 **Tip**: The token can be found in Openfire console: `Server` > `Server Settings` > `REST API` > `Secret key`
+
+## 🚀 Usage
+
+### GUI Mode (Recommended)
+
+```bash
+python main.py
+```
+
+**GUI Features**:
+- 📊 **Statistics Panel**: Active taxis, passengers, solver status
+- 🎮 **Controls**: Start, stop, restart system
+- 🗺️ **Interactive Map**: Real-time visualization of 30x30 grid
+- 📋 **Legend**: Symbols for taxis, passengers, destinations
+
+### Command Line Mode
+
+#### Create Taxi Agents
+
+```bash
+# Local host: Create 5 taxis
+python main.py --host taxi_host --agent-type taxi --agent-count 5
+
+# Coordinator host
+python main.py --host coordinator_host --agent-type coordinator
+```
+
+#### Multi-Host Distribution
+
+```bash
+# Host 1: 10 taxis
+python main.py --host host1 --agent-type taxi --agent-count 10
+
+# Host 2: 15 taxis
+python main.py --host host2 --agent-type taxi --agent-count 15
+
+# Main host: Coordinator with GUI
+python main.py --host coordinator --agent-type coordinator
+```
+
+### Command Line Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `--host` | Host identifier | `--host server1` |
+| `--agent-type` | Agent type | `--agent-type taxi` |
+| `--agent-count` | Number of agents | `--agent-count 20` |
+
+## 🧪 Performance Evaluation
+
+### Included Testing Scripts
+
+#### 1. **Multi-Host Limit Evaluation**
+
+```bash
+python comparador_limite_multi_host.py
+```
+
+**Features**:
+- Automated testing with 2 and 3 hosts
+- RAM usage monitoring during creation
+- Limit detection when RAM > 90%
+- JSON report with memory flags
+
+#### 2. **Quick Performance Test**
+
+```bash
+python quick_performance_test.py
+```
+
+#### 3. **Distributed Evaluation**
+
+```bash
+python evaluacion_multi_host.py
+```
+
+#### 4. **User Management**
+
+```bash
+# Clean Openfire users
+python deleteagents.py
+
+# Connection diagnostics
+python test_openfire_connection.py
+```
+
+### Evaluated Metrics
+
+- ✅ **Maximum agents per host**
+- ✅ **RAM usage** during operation
+- ✅ **System response time**
+- ✅ **XMPP communication latency**
+- ✅ **Assignment success rate**
+
+### Typical Results
+
+| Metric | Typical Value |
+|---------|--------------|
+| **Agents per host** | 50-100+ |
+| **Assignment time** | <100ms |
+| **RAM usage** | ~50MB per agent |
+| **XMPP latency** | <10ms |
+
+## 🌐 Multi-Host Distribution
+
+### Network Configuration
+
+1. **Central Openfire Server**:
+   ```bash
+   # Configure firewall for ports
+   # 5222: XMPP
+   # 9090: Web console
+   # 9091: REST API
+   ```
+
+2. **Remote Hosts**:
+   ```python
+   # Modify config.py on each host
+   openfire_host = "192.168.1.100"  # Central server IP
+   ```
+
+### Distributed Deployment Example
+
+```bash
+# Central Server (192.168.1.100)
+python main.py --host coordinator --agent-type coordinator
+
+# Host 1 (192.168.1.101)
+python main.py --host host1 --agent-type taxi --agent-count 25
+
+# Host 2 (192.168.1.102)
+python main.py --host host2 --agent-type taxi --agent-count 30
+
+# Host 3 (192.168.1.103)
+python main.py --host host3 --agent-type taxi --agent-count 35
+```
+
+### Multi-Host Evaluation Script
+
+```bash
+# Evaluate distributed limits
+python comparador_limite_multi_host.py --hosts 3 --start-agents 10
+
+# Expected output:
+# - 2-host configuration: X maximum agents
+# - 3-host configuration: Y maximum agents
+# - Detailed JSON report
+```
+
+## 📚 Project Documentation
 
 ### Project Structure
+
 ```
-├── agent.py              # SPADE agent implementation
-├── constraints.py        # OR-Tools constraint programming  
-├── environment.py        # World simulation
-├── openfire_api.py       # REST API integration
-├── gui.py                # Pygame visualization
-├── config.py             # Configuration management
-├── main.py               # Entry point
-├── setup.py              # Automated setup
-├── examples/             # Usage examples
-├── docker-compose.yml    # Openfire deployment
-└── requirements.txt      # Dependencies
-```
-
-### Adding New Features
-1. **New Agent Behavior**: Extend behavior classes in `agent.py`
-2. **Constraint Types**: Add solvers in `constraints.py`
-3. **GUI Elements**: Extend drawing methods in `gui.py`
-4. **Communication**: Add message types in agent communication
-
-### Testing
-```bash
-# Run all examples
-python examples/basic_example.py
-python examples/distributed_example.py
-python examples/performance_test.py
-
-# Manual testing
-python main.py --mode agent --agent-count 1
-python main.py --mode gui
+tfsito/
+├── src/
+│   ├── agent/
+│   │   ├── coordinator.py      # Central coordinator agent
+│   │   ├── taxi.py            # Individual taxi agent
+│   │   ├── index.py           # Agent factory
+│   │   └── libs/
+│   │       ├── constraint.py   # Constraint programming
+│   │       └── environment.py  # Environment structures
+│   ├── services/
+│   │   └── openfire_api.py    # Openfire REST API client
+│   ├── utils/
+│   │   └── logger.py          # Logging system
+│   ├── config.py              # Global configuration
+│   └── taxi_dispatch_gui.py   # Graphical interface
+├── main.py                    # Main entry point
+├── deleteagents.py           # Cleanup utility
+├── comparador_limite_multi_host.py  # Limit evaluation
+├── test_openfire_connection.py      # Diagnostics
+└── requirements.txt          # Dependencies
 ```
 
-## Performance
+### Openfire REST API
 
-### Tested Limits
-- **Agents**: 500+ agents per environment
-- **Hosts**: Successfully tested on 5+ distributed hosts
-- **Real-time**: 30+ FPS GUI with 100+ agents
-- **Latency**: <10ms constraint solving per decision
-
-### Optimization Tips
-- Use fewer agents for initial testing
-- Adjust heartbeat intervals for network efficiency
-- Monitor memory usage with many agents
-- Consider database backend for large deployments
-
-## License
-
-This project is provided as-is for educational and research purposes.
-
-## Support
-
-For issues and questions:
-1. Check the troubleshooting guide above
-2. Review logs in `simulation.log`
-3. Run performance tests to identify bottlenecks
-4. Consult `ARCHITECTURE.md` for detailed implementation
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/plugins/restapi/v1/users` | GET | List users |
+| `/plugins/restapi/v1/users` | POST | Create user |
+| `/plugins/restapi/v1/users/{id}` | DELETE | Delete user |
+| `/plugins/restapi/v1/sessions` | GET | Active sessions |
